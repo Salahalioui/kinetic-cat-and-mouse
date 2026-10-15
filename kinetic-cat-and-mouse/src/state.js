@@ -13,6 +13,10 @@ export const GameState = {
   turnPhase: 'BUILD',      // 'BUILD' | 'RUN' in TURN_BASED style
   buildTimer: CONFIG.GM.BUILD_PHASE_SECONDS * 60,
 
+  isPaused: false,
+  soundVolume: 1.0,
+  soundMuted: false,
+
   currentRound: 1,  // Round 1: P1 is Hero, P2 is GM. Round 2: Roles swap.
   frameCount: 0,
   cameraX: 0,
@@ -234,13 +238,16 @@ export function initLevel(levelNumber = 1, mode = 'LEVELS') {
     chunkIdx++;
   }
 
-  // 3. Finish Runway & Portal (in LEVELS mode)
-  if (mode === 'LEVELS') {
-    platforms.push({ x: curX, y: 440, width: 340, height: 24, lane: 'MID' });
-    platforms.push({ x: curX, y: 620, width: 340, height: 24, lane: 'LOW' });
+  // 3. Finish Runway & Extraction Portal (in LEVELS mode)
+  if (mode !== 'ENDLESS') {
+    // Generous final extraction landing pad
+    platforms.push({ x: curX, y: 440, width: 600, height: 24, lane: 'MID' });
+    platforms.push({ x: curX, y: 620, width: 600, height: 24, lane: 'LOW' });
 
-    GameState.finishPortal.x = targetLength - 150;
-    GameState.finishPortal.y = 360;
+    GameState.finishPortal.x = curX + 260;
+    GameState.finishPortal.y = 440 - 100; // Sits firmly on top of the 440 platform
+    GameState.finishPortal.width = 60;
+    GameState.finishPortal.height = 100;
   } else {
     // Endless has no finish portal
     GameState.finishPortal.x = 99999999;

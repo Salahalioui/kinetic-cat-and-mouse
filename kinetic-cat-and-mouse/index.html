@@ -28,13 +28,16 @@
         </div>
 
         <div class="match-center">
-          <!-- Play Style & Mode Switcher Bar -->
+          <!-- Play Style & Mode Switcher Bar with Quick Action Buttons -->
           <div class="mode-bar">
+            <button id="hudMenuBtn" class="cyber-btn-small" title="Return to Main Menu">MENU</button>
+            <button id="hudPauseBtn" class="cyber-btn-small" title="Pause Game (ESC / P)">⏸ PAUSE</button>
+
             <div class="select-group">
               <label for="playStyleSelect">STYLE:</label>
               <select id="playStyleSelect" class="cyber-select">
-                <option value="REAL_TIME">Real-Time (Classic)</option>
                 <option value="TURN_BASED" selected>Turn-Based (Architect)</option>
+                <option value="REAL_TIME">Real-Time (Classic)</option>
                 <option value="SLOW_MO">Tactical Slow-Mo</option>
                 <option value="TWO_SCREEN">Two-Screen (Dual Window)</option>
               </select>
@@ -43,17 +46,17 @@
             <div class="select-group">
               <label for="gameModeSelect">MODE:</label>
               <select id="gameModeSelect" class="cyber-select">
-                <option value="CAMPAIGN_1">Level 1: Neon Highway</option>
-                <option value="CAMPAIGN_2">Level 2: Repulsor Canyon</option>
-                <option value="CAMPAIGN_3">Level 3: Laser Gauntlet</option>
-                <option value="CAMPAIGN_4">Level 4: Apex Overdrive</option>
+                <option value="CAMPAIGN_1">Level 1: Training</option>
+                <option value="CAMPAIGN_2">Level 2: Wind Tunnel</option>
+                <option value="CAMPAIGN_3">Level 3: Mind Games</option>
+                <option value="CAMPAIGN_4">Level 4: Hyper-Drive</option>
                 <option value="ENDLESS">Unlimited Run</option>
               </select>
             </div>
 
-            <button id="openGmWindowBtn" class="cyber-btn-small" title="Open GM Blueprint View in second window">
-              2-SCREEN
-            </button>
+            <button id="hudGuideBtn" class="cyber-btn-small" title="How To Play &amp; Rules">HOW TO PLAY</button>
+            <button id="hudSettingsBtn" class="cyber-btn-small" title="Settings &amp; Audio">⚙</button>
+            <button id="openGmWindowBtn" class="cyber-btn-small highlight" title="Open GM Blueprint View in second window">2-SCREEN</button>
           </div>
 
           <div class="timer-box">
@@ -62,7 +65,7 @@
           <div class="match-meta">
             <span id="hudRound" class="round-display">LEVEL 1 (ROUND 1 / 2)</span>
             <span class="meta-separator">//</span>
-            <span id="hudDistance" class="dist-display">0% (0 / 4650m)</span>
+            <span id="hudDistance" class="dist-display">0% (0 / 2400m)</span>
           </div>
         </div>
 
@@ -89,9 +92,9 @@
         <div class="control-guide">
           <div class="guide-title">Hero Controls</div>
           <div class="guide-row"><span class="key-tag">A</span> <span class="key-tag">D</span> Sprint</div>
-          <div class="guide-row"><span class="key-tag">W</span> / <span class="key-tag">SPACE</span> Jump / Double-Jump (Coyote + Buffer)</div>
+          <div class="guide-row"><span class="key-tag">W</span> / <span class="key-tag">SPACE</span> Jump + Double-Jump</div>
           <div class="guide-row"><span class="key-tag">S</span> Fast-Fall / Ground Slam</div>
-          <div class="guide-row"><span class="key-tag">SHIFT</span> Dash Burst (Through Spikes!)</div>
+          <div class="guide-row"><span class="key-tag">SHIFT</span> Dash Burst (Spike Immune!)</div>
         </div>
 
         <!-- Game Master Trap Construction Dock -->
@@ -138,13 +141,184 @@
           <div class="guide-row"><span class="key-tag">L-CLICK</span> Snap &amp; Construct Trap</div>
           <div class="guide-row"><span class="key-tag">WHEEL / A-D</span> Pan Level (Build Phase)</div>
           <div class="guide-row"><span class="key-tag">TAB / Q</span> Slow-Mo Bullet Time</div>
-          <div class="guide-row"><span class="key-tag">AUTO-VACUUM</span> Wall Recycles Passed Traps (50% NRG)</div>
+          <div class="guide-row"><span class="key-tag">VACUUM</span> Wall Auto-Recycles Passed Traps</div>
         </div>
       </footer>
     </div>
 
+    <!-- MAIN MENU OVERLAY -->
+    <div id="mainMenuOverlay" class="modal-overlay hidden">
+      <div class="modal-card main-menu-card">
+        <div class="menu-cyber-badge">ASYMMETRIC PREDICTIVE PLATFORMER</div>
+        <h1 class="menu-hero-title">KINETIC CAT-AND-MOUSE</h1>
+        <p class="menu-hero-subtitle">Predictive Architect // Speed-Runner vs Level Designer</p>
+
+        <div class="main-menu-buttons">
+          <button id="menuBtnPlayCampaign" class="action-btn menu-btn">
+            ▶ START CAMPAIGN (LEVELS 1-4)
+          </button>
+          <button id="menuBtnPlayEndless" class="action-btn menu-btn secondary">
+            ⚡ UNLIMITED RUN (ENDLESS)
+          </button>
+          <button id="menuBtnHowToPlay" class="action-btn menu-btn ghost">
+            📖 HOW TO PLAY &amp; RULES
+          </button>
+          <button id="menuBtnSettings" class="action-btn menu-btn ghost">
+            ⚙ SETTINGS &amp; AUDIO
+          </button>
+          <button id="menuBtnTwoScreen" class="action-btn menu-btn highlight">
+            🖥️ LAUNCH 2-SCREEN GM BLUEPRINT
+          </button>
+        </div>
+        <div class="menu-footer-hint">Press [ESC] anytime during play to pause</div>
+      </div>
+    </div>
+
+    <!-- PAUSE MENU OVERLAY -->
+    <div id="pauseOverlay" class="modal-overlay hidden">
+      <div class="modal-card pause-card">
+        <div class="modal-header">TACTICAL HOLD</div>
+        <h2 class="modal-title">GAME PAUSED</h2>
+        <p class="modal-subtitle">Simulation frozen. Choose an action:</p>
+
+        <div class="pause-menu-buttons">
+          <button id="pauseBtnResume" class="action-btn menu-btn">
+            ▶ RESUME GAME [ESC]
+          </button>
+          <button id="pauseBtnRestart" class="action-btn menu-btn secondary">
+            🔄 RESTART ROUND [R]
+          </button>
+          <button id="pauseBtnHowToPlay" class="action-btn menu-btn ghost">
+            📖 HOW TO PLAY
+          </button>
+          <button id="pauseBtnSettings" class="action-btn menu-btn ghost">
+            ⚙ SETTINGS
+          </button>
+          <button id="pauseBtnQuitMenu" class="action-btn menu-btn danger">
+            🏠 QUIT TO MAIN MENU
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HOW TO PLAY MODAL OVERLAY -->
+    <div id="howToPlayOverlay" class="modal-overlay hidden">
+      <div class="modal-card how-to-play-card">
+        <div class="modal-header">OPERATION MANUAL</div>
+        <h2 class="modal-title">HOW TO PLAY</h2>
+
+        <div class="guide-tabs">
+          <button id="tabBtnHero" class="guide-tab-btn active" data-tab="hero">HERO (RUNNER)</button>
+          <button id="tabBtnArchitect" class="guide-tab-btn" data-tab="architect">ARCHITECT (GM)</button>
+          <button id="tabBtnRules" class="guide-tab-btn" data-tab="rules">RULES &amp; ROLE-SWAP</button>
+        </div>
+
+        <div id="tabContentHero" class="tab-content active">
+          <div class="guide-feature-grid">
+            <div class="guide-item">
+              <strong>🏃 Movement &amp; Fast-Fall</strong>
+              <p><kbd>A</kbd>/<kbd>D</kbd> to sprint. <kbd>W</kbd> or <kbd>Space</kbd> for Jump and mid-air Double-Jump. Press <kbd>S</kbd> or <kbd>Down</kbd> in mid-air to trigger a Fast-Fall Ground Slam!</p>
+            </div>
+            <div class="guide-item">
+              <strong>⚡ Supersonic Dash</strong>
+              <p>Press <kbd>Shift</kbd> to dash forward. During Dash, you are <em>completely immune</em> to Laser Spikes! Be careful: GM absorbs +15 NRG per dash.</p>
+            </div>
+            <div class="guide-item">
+              <strong>🛡️ Shield Barrier Orbs</strong>
+              <p>Ascend to High Lanes to collect glowing green Shield Orbs! Each orb grants a 1-hit protective energy barrier that absorbs damage and heals HP.</p>
+            </div>
+            <div class="guide-item">
+              <strong>🚪 Extraction Portal (EXIT DOOR)</strong>
+              <p>Reach the giant golden glowing Gateway at the end of the runway to successfully complete the level and bank your clear time!</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="tabContentArchitect" class="tab-content">
+          <div class="guide-feature-grid">
+            <div class="guide-item">
+              <strong>🎯 Magnetic Platform Snapping</strong>
+              <p>Surface traps (Spikes, Ice, Springs, Phantoms) automatically snap vertically to the top of the nearest platform under the mouse. Simply aim left/right!</p>
+            </div>
+            <div class="guide-item">
+              <strong>🛡️ Safe-Zone Halo (220px)</strong>
+              <p>A translucent circle surrounds the Hero at all times. You cannot build inside the halo; you must look down the track and set up predictive ambushes.</p>
+            </div>
+            <div class="guide-item">
+              <strong>⚡ Overclocking &amp; Traps</strong>
+              <p>Hotkeys <kbd>1</kbd>-<kbd>6</kbd>. Left-click an active Repulsor Fan or Laser Gate to Overclock it for 3 seconds of devastating speed!</p>
+            </div>
+            <div class="guide-item">
+              <strong>🔄 Auto-Salvage Vacuum</strong>
+              <p>Whenever the deadly Pacing Wall passes an old trap, it is automatically recycled, refunding 50% energy directly to your bank.</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="tabContentRules" class="tab-content">
+          <div class="guide-feature-grid">
+            <div class="guide-item">
+              <strong>⏱️ Stopwatch Role-Swap Format</strong>
+              <p>Matches consist of 2 rounds. In Round 1, Player 1 is Hero, Player 2 is GM. In Round 2, players swap keyboard &amp; mouse on the exact same layout!</p>
+            </div>
+            <div class="guide-item">
+              <strong>🏆 Victory Conditions</strong>
+              <p>If Player 1 died, Player 2 wins instantly by surpassing Player 1's distance. If both finish the course, the player with the fastest extraction time wins!</p>
+            </div>
+            <div class="guide-item">
+              <strong>⏳ Turn-Based vs Real-Time</strong>
+              <p>In Turn-Based mode, GM gets 20 seconds of paused planning to build traps along the course. In Real-Time, build on the fly or use Tactical Slow-Mo (<kbd>Tab</kbd>).</p>
+            </div>
+            <div class="guide-item">
+              <strong>🖥️ Zero-Server 2-Screen Mode</strong>
+              <p>Click "2-SCREEN" to open the GM Blueprint View in a second browser window via native BroadcastChannel. Perfect for dual monitors!</p>
+            </div>
+          </div>
+        </div>
+
+        <button id="howToPlayCloseBtn" class="action-btn" style="margin-top: 18px;">
+          GOT IT &rarr; RETURN TO GAME
+        </button>
+      </div>
+    </div>
+
+    <!-- SETTINGS / OPTIONS MODAL OVERLAY -->
+    <div id="settingsOverlay" class="modal-overlay hidden">
+      <div class="modal-card settings-card">
+        <div class="modal-header">CONFIGURATION</div>
+        <h2 class="modal-title">SETTINGS &amp; AUDIO</h2>
+
+        <div class="settings-form">
+          <div class="setting-row">
+            <label for="settingAudioMute">Sound FX:</label>
+            <button id="settingAudioMuteBtn" class="cyber-btn-small">MUTE / UNMUTE</button>
+          </div>
+
+          <div class="setting-row">
+            <label for="settingVolume">Volume Level:</label>
+            <input type="range" id="settingVolume" min="0" max="100" value="100" class="cyber-slider">
+            <span id="settingVolumeVal" style="font-size: 11px; color: var(--cyan-neon); min-width: 36px;">100%</span>
+          </div>
+
+          <div class="setting-row">
+            <label for="settingPlayStyle">Default Play Style:</label>
+            <select id="settingPlayStyle" class="cyber-select">
+              <option value="TURN_BASED">Turn-Based Architect (20s Build)</option>
+              <option value="REAL_TIME">Real-Time Classic</option>
+              <option value="SLOW_MO">Tactical Slow-Mo</option>
+              <option value="TWO_SCREEN">Two-Screen (Dual Window)</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="settingsCloseBtn" class="action-btn" style="margin-top: 22px;">
+          SAVE &amp; CLOSE
+        </button>
+      </div>
+    </div>
+
     <!-- Action / Round Transition / Match Winner Overlay Modal -->
-    <div id="actionOverlay" class="hidden">
+    <div id="actionOverlay" class="modal-overlay hidden">
       <div class="modal-card">
         <div id="actionHeader" class="modal-header">STOPWATCH ROLE-SWAP</div>
         <h2 id="actionTitle" class="modal-title">ROUND 1 COMPLETE</h2>

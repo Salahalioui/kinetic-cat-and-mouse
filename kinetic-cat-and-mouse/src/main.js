@@ -1,7 +1,7 @@
 /**
  * Kinetic Cat-and-Mouse: Predictive Architect
- * src/main.js - 60 FPS Game Loop, Play Style & Mode Manager, BroadcastChannel Sync,
- * and Stopwatch Role-Swap Controller.
+ * src/main.js - 60 FPS Game Loop, Main Menu, Pause System, How To Play Guide,
+ * Settings & Audio Controller, and Stopwatch Role-Swap Manager.
  */
 
 import { CONFIG } from './config.js';
@@ -22,9 +22,16 @@ let domSubtitle = null;
 let domStats = null;
 let domActionBtn = null;
 let domLaunchBtn = null;
+
 let domPlayStyleSelect = null;
 let domGameModeSelect = null;
 let domOpenGmWindowBtn = null;
+
+// New Modal Overlays
+let domMainMenuOverlay = null;
+let domPauseOverlay = null;
+let domHowToPlayOverlay = null;
+let domSettingsOverlay = null;
 
 /**
  * Initializes the canvas, input listeners, HUD modal bindings, and starts the game loop
@@ -40,7 +47,7 @@ function init() {
   canvas.height = CONFIG.CANVAS_HEIGHT;
   ctx = canvas.getContext('2d');
 
-  // Cache modal overlay elements
+  // Cache DOM modal overlay elements
   domOverlay = document.getElementById('actionOverlay');
   domHeader = document.getElementById('actionHeader');
   domTitle = document.getElementById('actionTitle');
@@ -53,10 +60,41 @@ function init() {
   domGameModeSelect = document.getElementById('gameModeSelect');
   domOpenGmWindowBtn = document.getElementById('openGmWindowBtn');
 
+  domMainMenuOverlay = document.getElementById('mainMenuOverlay');
+  domPauseOverlay = document.getElementById('pauseOverlay');
+  domHowToPlayOverlay = document.getElementById('howToPlayOverlay');
+  domSettingsOverlay = document.getElementById('settingsOverlay');
+
+  // Setup Button Event Listeners
+  setupEventListeners();
+
+  // Initialize Input System
+  initInput(canvas);
+
+  // Check URL parameters for role (?role=gm)
+  if (typeof window !== 'undefined' && window.location.search.includes('role=gm')) {
+    GameState.playStyle = 'TWO_SCREEN';
+    if (domPlayStyleSelect) domPlayStyleSelect.value = 'TWO_SCREEN';
+    document.title = 'Kinetic Cat-and-Mouse // GM Blueprint View';
+  }
+
+  // Initialize Round 1 on Level 1
+  GameState.initLevel(1);
+  resetRound(1);
+
+  // Start 60 FPS requestAnimationFrame loop
+  requestAnimationFrame(gameLoop);
+}
+
+/**
+ * Wires up UI buttons for Main Menu, Pause, How To Play, and Settings
+ */
+function setupEventListeners() {
   if (domActionBtn) {
     domActionBtn.addEventListener('click', handleActionClick);
   }
 
+  // Turn-Based Launch Hero Button
   if (domLaunchBtn) {
     domLaunchBtn.addEventListener('click', () => {
       if (GameState.playStyle === 'TURN_BASED' && GameState.turnPhase === 'BUILD') {
@@ -66,6 +104,17 @@ function init() {
       }
     });
   }
+
+  // HUD Top Navigation Buttons
+  const hudMenuBtn = document.getElementById('hudMenuBtn');
+  const hudPauseBtn = document.getElementById('hudPauseBtn');
+  const hudGuideBtn = document.getElementById('hudGuideBtn');
+  const hudSettingsBtn = document.getElementById('hudSettingsBtn');
+
+  if (hudMenuBtn) hudMenuBtn.addEventListener('click', showMainMenu);
+  if (hudPauseBtn) hudPauseBtn.addEventListener('click', togglePause);
+  if (hudGuideBtn) hudGuideBtn.addEventListener('click', () => showHowToPlay('hero'));
+  if (hudSettingsBtn) hudSettingsBtn.addEventListener('click', showSettings);
 
   // Play Style Switcher
   if (domPlayStyleSelect) {
@@ -92,35 +141,192 @@ function init() {
 
   // Two-Screen Window Opener
   if (domOpenGmWindowBtn) {
-    domOpenGmWindowBtn.addEventListener('click', () => {
-      const url = window.location.origin + window.location.pathname + '?role=gm';
-      window.open(url, '_blank', 'width=1280,height=720,menubar=no,toolbar=no');
+    domOpenGmWindowBtn.addEventListener('click', openGmWindow);
+  }
+
+  // Main Menu Buttons
+  const menuBtnPlayCampaign = document.getElementById('menuBtnPlayCampaign');
+  const menuBtnPlayEndless = document.getElementById('menuBtnPlayEndless');
+  const menuBtnHowToPlay = document.getElementById('menuBtnHowToPlay');
+  const menuBtnSettings = document.getElementById('menuBtnSettings');
+  const menuBtnTwoScreen = document.getElementById('menuBtnTwoScreen');
+
+  if (menuBtnPlayCampaign) {
+    menuBtnPlayCampaign.addEventListener('click', () => {
+      hideMainMenu();
+      GameState.initLevel(1);
+      if (domGameModeSelect) domGameModeSelect.value = 'CAMPAIGN_1';
+      resetRound(1);
     });
   }
 
-  // Check URL parameters for role (?role=gm)
-  if (typeof window !== 'undefined' && window.location.search.includes('role=gm')) {
-    GameState.playStyle = 'TWO_SCREEN';
-    if (domPlayStyleSelect) domPlayStyleSelect.value = 'TWO_SCREEN';
-    document.title = 'Kinetic Cat-and-Mouse // GM Blueprint View';
+  if (menuBtnPlayEndless) {
+    menuBtnPlayEndless.addEventListener('click', () => {
+      hideMainMenu();
+      GameState.initLevel('ENDLESS');
+      if (domGameModeSelect) domGameModeSelect.value = 'ENDLESS';
+      resetRound(1);
+    });
   }
 
-  // Keyboard shortcut (Space / Enter) to advance overlay modal
+  if (menuBtnHowToPlay) menuBtnHowToPlay.addEventListener('click', () => showHowToPlay('hero'));
+  if (menuBtnSettings) menuBtnSettings.addEventListener('click', showSettings);
+  if (menuBtnTwoScreen) menuBtnTwoScreen.addEventListener('click', openGmWindow);
+
+  // Pause Menu Buttons
+  const pauseBtnResume = document.getElementById('pauseBtnResume');
+  const pauseBtnRestart = document.getElementById('pauseBtnRestart');
+  const pauseBtnHowToPlay = document.getElementById('pauseBtnHowToPlay');
+  const pauseBtnSettings = document.getElementById('pauseBtnSettings');
+  const pauseBtnQuitMenu = document.getElementById('pauseBtnQuitMenu');
+
+  if (pauseBtnResume) pauseBtnResume.addEventListener('click', togglePause);
+  if (pauseBtnRestart) {
+    pauseBtnRestart.addEventListener('click', () => {
+      togglePause();
+      resetRound(GameState.currentRound);
+    });
+  }
+  if (pauseBtnHowToPlay) pauseBtnHowToPlay.addEventListener('click', () => showHowToPlay('hero'));
+  if (pauseBtnSettings) pauseBtnSettings.addEventListener('click', showSettings);
+  if (pauseBtnQuitMenu) {
+    pauseBtnQuitMenu.addEventListener('click', () => {
+      togglePause();
+      showMainMenu();
+    });
+  }
+
+  // How To Play Tab Buttons
+  const tabBtnHero = document.getElementById('tabBtnHero');
+  const tabBtnArchitect = document.getElementById('tabBtnArchitect');
+  const tabBtnRules = document.getElementById('tabBtnRules');
+  const howToPlayCloseBtn = document.getElementById('howToPlayCloseBtn');
+
+  if (tabBtnHero) tabBtnHero.addEventListener('click', () => switchGuideTab('hero'));
+  if (tabBtnArchitect) tabBtnArchitect.addEventListener('click', () => switchGuideTab('architect'));
+  if (tabBtnRules) tabBtnRules.addEventListener('click', () => switchGuideTab('rules'));
+  if (howToPlayCloseBtn) howToPlayCloseBtn.addEventListener('click', hideHowToPlay);
+
+  // Settings Buttons & Sliders
+  const settingAudioMuteBtn = document.getElementById('settingAudioMuteBtn');
+  const settingVolume = document.getElementById('settingVolume');
+  const settingVolumeVal = document.getElementById('settingVolumeVal');
+  const settingPlayStyle = document.getElementById('settingPlayStyle');
+  const settingsCloseBtn = document.getElementById('settingsCloseBtn');
+
+  if (settingAudioMuteBtn) {
+    settingAudioMuteBtn.addEventListener('click', () => {
+      GameState.soundMuted = !GameState.soundMuted;
+      settingAudioMuteBtn.textContent = GameState.soundMuted ? 'UNMUTE AUDIO' : 'MUTE AUDIO';
+      if (!GameState.soundMuted) playSound('dash');
+    });
+  }
+
+  if (settingVolume) {
+    settingVolume.addEventListener('input', (e) => {
+      const vol = parseInt(e.target.value, 10);
+      GameState.soundVolume = vol / 100;
+      if (settingVolumeVal) settingVolumeVal.textContent = `${vol}%`;
+    });
+  }
+
+  if (settingPlayStyle) {
+    settingPlayStyle.value = GameState.playStyle;
+    settingPlayStyle.addEventListener('change', (e) => {
+      GameState.playStyle = e.target.value;
+      if (domPlayStyleSelect) domPlayStyleSelect.value = e.target.value;
+      resetRound(GameState.currentRound);
+    });
+  }
+
+  if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', hideSettings);
+
+  // Keyboard Shortcuts: ESC (Pause), P (Pause), R (Restart when paused)
   window.addEventListener('keydown', (e) => {
-    if ((e.code === 'Space' || e.code === 'Enter') && GameState.phase !== 'PLAYING') {
+    if (e.code === 'Escape' || e.code === 'KeyP') {
+      if (!domHowToPlayOverlay?.classList.contains('hidden')) {
+        hideHowToPlay();
+      } else if (!domSettingsOverlay?.classList.contains('hidden')) {
+        hideSettings();
+      } else if (!domMainMenuOverlay?.classList.contains('hidden')) {
+        hideMainMenu();
+      } else if (GameState.phase === 'PLAYING') {
+        togglePause();
+      }
+    } else if (e.code === 'KeyR' && GameState.isPaused) {
+      togglePause();
+      resetRound(GameState.currentRound);
+    } else if ((e.code === 'Space' || e.code === 'Enter') && GameState.phase !== 'PLAYING') {
       handleActionClick();
     }
   });
+}
 
-  // Initialize Input System
-  initInput(canvas);
+function openGmWindow() {
+  const url = window.location.origin + window.location.pathname + '?role=gm';
+  window.open(url, '_blank', 'width=1280,height=720,menubar=no,toolbar=no');
+}
 
-  // Initialize Round 1 on Level 1
-  GameState.initLevel(1);
-  resetRound(1);
+export function togglePause() {
+  GameState.isPaused = !GameState.isPaused;
+  if (domPauseOverlay) {
+    if (GameState.isPaused) {
+      domPauseOverlay.classList.remove('hidden');
+    } else {
+      domPauseOverlay.classList.add('hidden');
+    }
+  }
+}
 
-  // Start 60 FPS requestAnimationFrame loop
-  requestAnimationFrame(gameLoop);
+export function showMainMenu() {
+  GameState.isPaused = true;
+  if (domMainMenuOverlay) domMainMenuOverlay.classList.remove('hidden');
+}
+
+export function hideMainMenu() {
+  if (domPauseOverlay?.classList.contains('hidden')) {
+    GameState.isPaused = false;
+  }
+  if (domMainMenuOverlay) domMainMenuOverlay.classList.add('hidden');
+}
+
+export function showHowToPlay(tab = 'hero') {
+  GameState.isPaused = true;
+  if (domHowToPlayOverlay) domHowToPlayOverlay.classList.remove('hidden');
+  switchGuideTab(tab);
+}
+
+export function hideHowToPlay() {
+  if (domPauseOverlay?.classList.contains('hidden') && domMainMenuOverlay?.classList.contains('hidden')) {
+    GameState.isPaused = false;
+  }
+  if (domHowToPlayOverlay) domHowToPlayOverlay.classList.add('hidden');
+}
+
+export function switchGuideTab(tabName) {
+  const tabs = ['hero', 'architect', 'rules'];
+  tabs.forEach((t) => {
+    const btn = document.getElementById(`tabBtn${capitalize(t)}`);
+    const content = document.getElementById(`tabContent${capitalize(t)}`);
+    if (btn) btn.classList.toggle('active', t === tabName);
+    if (content) content.classList.toggle('active', t === tabName);
+  });
+}
+
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+export function showSettings() {
+  GameState.isPaused = true;
+  if (domSettingsOverlay) domSettingsOverlay.classList.remove('hidden');
+}
+
+export function hideSettings() {
+  if (domPauseOverlay?.classList.contains('hidden') && domMainMenuOverlay?.classList.contains('hidden')) {
+    GameState.isPaused = false;
+  }
+  if (domSettingsOverlay) domSettingsOverlay.classList.add('hidden');
 }
 
 /**
@@ -130,8 +336,8 @@ function gameLoop() {
   // 1. Synchronize mouse world coordinates with camera position
   syncWorldMouse();
 
-  // 2. State & Physics Update
-  if (GameState.phase === 'PLAYING') {
+  // 2. State & Physics Update (Frozen when paused)
+  if (GameState.phase === 'PLAYING' && !GameState.isPaused) {
     let shouldStepPhysics = true;
 
     // Tactical Slow-Mo Bullet Time (25% speed)
@@ -154,10 +360,10 @@ function gameLoop() {
         }
       }
 
-      // Instant Win Condition for Round 2 in Campaign Mode:
+      // Instant Win Condition for Round 2 in Levels Mode:
       // If Round 1 Hero didn't finish, and Round 2 Hero surpasses Round 1's distance
       if (
-        GameState.gameMode === 'CAMPAIGN' &&
+        GameState.gameMode !== 'ENDLESS' &&
         GameState.currentRound === 2 &&
         GameState.roundScores.round1Distance < GameState.finishPortal.x &&
         GameState.hero.x > GameState.roundScores.round1Distance &&
@@ -221,6 +427,7 @@ function formatTime(frames) {
  */
 export function endRound(reason) {
   if (GameState.phase !== 'PLAYING') return;
+  if (GameState.isPaused) return;
 
   // Endless Mode Game Over
   if (GameState.gameMode === 'ENDLESS') {
@@ -247,11 +454,8 @@ export function endRound(reason) {
     return;
   }
 
-  // Campaign Mode Round 1 & Round 2
+  // Levels Mode Round 1 & Round 2
   if (GameState.currentRound === 1) {
-    // -----------------------------------------------------------------------
-    // ROUND 1 COMPLETE -> PREPARE ROLE-SWAP
-    // -----------------------------------------------------------------------
     GameState.phase = 'ROUND_OVER';
     GameState.roundScores.round1Distance = GameState.hero.x;
     GameState.roundScores.round1TimeFrames = GameState.frameCount;
@@ -268,7 +472,7 @@ export function endRound(reason) {
     }
 
     if (domHeader) domHeader.textContent = 'STOPWATCH ROLE-SWAP';
-    if (domTitle) domTitle.textContent = 'ROUND 1 COMPLETE';
+    if (domTitle) domTitle.textContent = reason === 'FINISHED' ? 'EXTRACTION DOOR REACHED!' : 'ROUND 1 COMPLETE';
     if (domSubtitle) domSubtitle.textContent = 'SWAP ROLES: PASS KEYBOARD & MOUSE!';
     if (domStats) {
       domStats.innerHTML = `
@@ -281,9 +485,6 @@ export function endRound(reason) {
     showOverlay();
 
   } else {
-    // -----------------------------------------------------------------------
-    // ROUND 2 COMPLETE -> MATCH DECISION
-    // -----------------------------------------------------------------------
     GameState.phase = 'MATCH_OVER';
     GameState.roundScores.round2Distance = GameState.hero.x;
     GameState.roundScores.round2TimeFrames = GameState.frameCount;
@@ -305,20 +506,20 @@ export function endRound(reason) {
     } else if (p1Completed && p2Completed) {
       if (r2Time < r1Time) {
         winner = 'PLAYER 2';
-        winReason = `Player 2 reached extraction faster (${formatTime(r2Time)} vs ${formatTime(r1Time)})!`;
+        winReason = `Player 2 extracted faster (${formatTime(r2Time)} vs ${formatTime(r1Time)})!`;
       } else if (r1Time < r2Time) {
         winner = 'PLAYER 1';
-        winReason = `Player 1 reached extraction faster (${formatTime(r1Time)} vs ${formatTime(r2Time)})!`;
+        winReason = `Player 1 extracted faster (${formatTime(r1Time)} vs ${formatTime(r2Time)})!`;
       } else {
         winner = 'DRAW';
         winReason = 'Exact time tie between both competitors!';
       }
     } else if (p1Completed && !p2Completed) {
       winner = 'PLAYER 1';
-      winReason = 'Player 1 completed the course, while Player 2 was eliminated!';
+      winReason = 'Player 1 reached the Extraction Door, while Player 2 was eliminated!';
     } else if (!p1Completed && p2Completed) {
       winner = 'PLAYER 2';
-      winReason = 'Player 2 completed the course, while Player 1 was eliminated!';
+      winReason = 'Player 2 reached the Extraction Door, while Player 1 was eliminated!';
     } else {
       if (r2Dist > r1Dist) {
         winner = 'PLAYER 2';
@@ -331,7 +532,7 @@ export function endRound(reason) {
 
     playSound('win');
 
-    if (domHeader) domHeader.textContent = `LEVEL ${GameState.currentLevel} RESULT`;
+    if (domHeader) domHeader.textContent = `LEVEL ${GameState.currentLevel} COMPLETE`;
     if (domTitle) domTitle.textContent = winner === 'DRAW' ? "IT'S A DRAW!" : `${winner} WINS!`;
     if (domSubtitle) domSubtitle.textContent = winReason;
     if (domStats) {
@@ -356,7 +557,7 @@ function handleActionClick() {
     resetRound(2);
   } else if (GameState.phase === 'MATCH_OVER') {
     hideOverlay();
-    if (GameState.gameMode === 'CAMPAIGN' && GameState.currentLevel < 4) {
+    if (GameState.gameMode !== 'ENDLESS' && GameState.currentLevel < 4) {
       GameState.initLevel(GameState.currentLevel + 1);
       if (domGameModeSelect) domGameModeSelect.value = `CAMPAIGN_${GameState.currentLevel}`;
       resetRound(1);

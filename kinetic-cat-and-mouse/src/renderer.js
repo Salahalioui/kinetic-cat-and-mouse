@@ -232,8 +232,8 @@ export function render(ctx) {
   // Draw Shield Pickups
   drawPickups(ctx);
 
-  // Draw Finish Portal (Campaign Mode)
-  if (GameState.gameMode === 'CAMPAIGN') {
+  // Draw Finish Portal (Campaign / Levels Mode)
+  if (GameState.gameMode !== 'ENDLESS') {
     drawFinishPortal(ctx);
   }
 
@@ -725,28 +725,105 @@ function drawFinishPortal(ctx) {
   const time = performance.now() * 0.003;
 
   ctx.save();
-  ctx.translate(cx, cy);
 
+  // 1. Runway Ground Guidance Chevrons (Approach runway)
+  const chevronCount = 5;
+  for (let c = 0; c < chevronCount; c++) {
+    const chX = portal.x - 180 + c * 35;
+    const chY = portal.y + portal.height + 4;
+    const pulseAlpha = 0.4 + Math.sin(time * 6 + c) * 0.3;
+    ctx.strokeStyle = `rgba(0, 240, 255, ${pulseAlpha})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(chX, chY - 6);
+    ctx.lineTo(chX + 12, chY);
+    ctx.lineTo(chX, chY + 6);
+    ctx.stroke();
+  }
+
+  // 2. Twin High-Tech Beacon Pillars on Left & Right
+  const pillarW = 12;
+  const pillarH = portal.height + 30;
+  const leftPx = portal.x - 16;
+  const rightPx = portal.x + portal.width + 4;
+  const pillarTop = portal.y - 30;
+
+  // Pillars body
+  ctx.fillStyle = '#0a101f';
+  ctx.fillRect(leftPx, pillarTop, pillarW, pillarH);
+  ctx.fillRect(rightPx, pillarTop, pillarW, pillarH);
+
+  // Pillars glowing edges
   ctx.strokeStyle = COLORS.FINISH_GOLD;
+  ctx.lineWidth = 2;
   ctx.shadowColor = COLORS.FINISH_GOLD;
-  ctx.shadowBlur = 24;
-  ctx.lineWidth = 3;
+  ctx.shadowBlur = 12;
+  ctx.strokeRect(leftPx, pillarTop, pillarW, pillarH);
+  ctx.strokeRect(rightPx, pillarTop, pillarW, pillarH);
 
+  // Vertical sky beacon laser beam
+  ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)';
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.ellipse(0, 0, 24, 42, 0, 0, Math.PI * 2);
+  ctx.moveTo(leftPx + pillarW / 2, 0);
+  ctx.lineTo(leftPx + pillarW / 2, pillarTop);
+  ctx.moveTo(rightPx + pillarW / 2, 0);
+  ctx.lineTo(rightPx + pillarW / 2, pillarTop);
   ctx.stroke();
 
+  // 3. Central Extraction Doorway Arch
+  ctx.fillStyle = 'rgba(255, 215, 0, 0.12)';
+  ctx.fillRect(portal.x, portal.y, portal.width, portal.height);
+
+  // Swirling vortex core
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.strokeStyle = COLORS.FINISH_GOLD;
+  ctx.shadowColor = COLORS.FINISH_GOLD;
+  ctx.shadowBlur = 28;
+  ctx.lineWidth = 3.5;
+
+  ctx.beginPath();
+  ctx.ellipse(0, 0, portal.width / 2, portal.height / 2, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Inner rotating cyber rings
   ctx.rotate(time);
+  ctx.strokeStyle = '#00f0ff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(-18, -30, 36, 60);
+
+  ctx.rotate(-time * 2);
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(-12, -18, 24, 36);
-
+  ctx.beginPath();
+  ctx.arc(0, 0, 14, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.restore();
 
+  // 4. Overhead Hologram Billboard (EXTRACTION DOOR // EXIT)
   ctx.font = 'bold 12px monospace';
   ctx.fillStyle = COLORS.FINISH_GOLD;
+  ctx.shadowColor = COLORS.FINISH_GOLD;
+  ctx.shadowBlur = 14;
   ctx.textAlign = 'center';
-  ctx.fillText('FINISH PORTAL', cx, portal.y - 12);
+  ctx.fillText('EXIT // EXTRACTION DOOR', cx, portal.y - 42);
+
+  ctx.font = '10px monospace';
+  ctx.fillStyle = '#00f0ff';
+  const arrowPulse = Math.sin(time * 8) * 3;
+  ctx.fillText('▼ ENTER HERE ▼', cx, portal.y - 24 + arrowPulse);
+
+  // Proximity Alert Banner when Hero is approaching within 800m
+  const distToDoor = portal.x - GameState.hero.x;
+  if (distToDoor > 0 && distToDoor < 800) {
+    ctx.font = 'bold 11px monospace';
+    ctx.fillStyle = '#00ff88';
+    ctx.textAlign = 'center';
+    ctx.fillText(`⚡ EXTRACTION DOOR: ${Math.floor(distToDoor)}m AHEAD ⚡`, cx, portal.y - 65);
+  }
+
+  ctx.restore();
 }
 
 /**

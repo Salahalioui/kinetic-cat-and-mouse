@@ -567,3 +567,258 @@ body::before {
   transform: translateY(-2px);
   box-shadow: 0 0 30px var(--cyan-neon);
 }
+
+/* ==========================================================================
+   GENERAL MODAL OVERLAYS (MAIN MENU, PAUSE, HOW TO PLAY, SETTINGS)
+   ========================================================================== */
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 7, 14, 0.92);
+  backdrop-filter: blur(12px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+  z-index: 20;
+  transition: opacity 0.2s ease;
+}
+
+.modal-overlay.hidden,
+#actionOverlay.hidden {
+  display: none !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Button Variants */
+.menu-btn {
+  width: 100%;
+  max-width: 380px;
+  margin: 5px 0;
+  display: block;
+  text-align: center;
+}
+
+.menu-btn.secondary {
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  box-shadow: 0 0 18px rgba(168, 85, 247, 0.4);
+}
+
+.menu-btn.ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  box-shadow: none;
+}
+
+.menu-btn.ghost:hover {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: var(--cyan-neon);
+}
+
+.menu-btn.danger {
+  background: linear-gradient(135deg, #ff0055, #cc0033);
+  box-shadow: 0 0 18px rgba(255, 0, 85, 0.4);
+  color: #fff;
+}
+
+.menu-btn.highlight {
+  background: linear-gradient(135deg, #ff2a6d, #f9f871);
+  color: #000;
+  box-shadow: 0 0 18px rgba(255, 42, 109, 0.4);
+}
+
+.cyber-btn-small.highlight {
+  background: rgba(255, 42, 109, 0.25);
+  border-color: var(--magenta-neon);
+  color: var(--magenta-neon);
+  font-weight: 900;
+}
+
+/* Main Menu Card */
+.main-menu-card {
+  max-width: 620px;
+  padding: 38px 46px;
+  border-color: var(--cyan-neon);
+  box-shadow: 0 0 50px rgba(0, 240, 255, 0.25), inset 0 0 25px rgba(0, 240, 255, 0.08);
+}
+
+.menu-cyber-badge {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--magenta-neon);
+  text-transform: uppercase;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.menu-hero-title {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: var(--cyan-neon);
+  text-shadow: 0 0 20px var(--cyan-glow);
+  margin-bottom: 6px;
+}
+
+.menu-hero-subtitle {
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 1.5px;
+  margin-bottom: 24px;
+}
+
+.main-menu-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.menu-footer-hint {
+  margin-top: 18px;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+
+/* Pause Menu */
+.pause-card {
+  max-width: 440px;
+  padding: 32px 36px;
+  border-color: var(--yellow-neon);
+  box-shadow: 0 0 40px rgba(249, 248, 113, 0.2);
+}
+
+.pause-menu-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* How To Play Modal */
+.how-to-play-card {
+  max-width: 740px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 28px 36px;
+  text-align: left;
+}
+
+.guide-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.3);
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.guide-tab-btn {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 6px 14px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.guide-tab-btn:hover {
+  color: #fff;
+  border-color: var(--cyan-neon);
+}
+
+.guide-tab-btn.active {
+  background: rgba(0, 240, 255, 0.2);
+  color: var(--cyan-neon);
+  border-color: var(--cyan-neon);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.guide-feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.guide-item {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.guide-item strong {
+  display: block;
+  font-size: 12px;
+  color: var(--cyan-neon);
+  margin-bottom: 5px;
+}
+
+.guide-item p {
+  font-size: 11px;
+  color: #cad3de;
+  line-height: 1.5;
+}
+
+.guide-item kbd {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+/* Settings Form */
+.settings-card {
+  max-width: 460px;
+  padding: 30px 36px;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 16px 0;
+  text-align: left;
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 10px 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.setting-row label {
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.cyber-slider {
+  accent-color: var(--cyan-neon);
+  cursor: pointer;
+  width: 140px;
+}
+

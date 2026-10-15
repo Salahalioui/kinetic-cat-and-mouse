@@ -665,8 +665,8 @@ export function updatePhysics(input, playSound) {
     updateEndlessStream();
   }
 
-  // 6. Check Finish Portal (Campaign Mode)
-  if (GameState.gameMode === 'CAMPAIGN') {
+  // 6. Check Finish Portal (Campaign / Levels Mode)
+  if (GameState.gameMode !== 'ENDLESS') {
     if (GameState.hero.x >= GameState.finishPortal.x && GameState.hero.hp > 0) {
       return 'FINISHED';
     }
