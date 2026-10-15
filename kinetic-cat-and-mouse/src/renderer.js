@@ -266,10 +266,6 @@ export function render(ctx) {
     drawSlowMoVignette(ctx);
   }
 
-  if (GameState.playStyle === 'TURN_BASED' && GameState.turnPhase === 'BUILD') {
-    drawTurnBasedBanner(ctx);
-  }
-
   // 4. Update DOM HUD Elements
   updateDOMHUD();
 }
@@ -853,7 +849,7 @@ function drawTargetToBeatMarker(ctx) {
 }
 
 /**
- * Draws the Game Master snapped grid ghost preview with magnetic snapping guideline
+ * Draws the Game Master snapped grid ghost preview with universal magnetic snapping guideline
  */
 function drawGMPreview(ctx) {
   const selectedDef = CONFIG.TRAPS[GameState.gm.selectedTrapKey];
@@ -863,51 +859,67 @@ function drawGMPreview(ctx) {
   const rawY = GameState.gm.worldMouseY;
   const gy = GameState.gm.snapY !== undefined ? GameState.gm.snapY : rawY;
   const canPlace = GameState.gm.canPlaceAtCursor;
+  const hasSnap = GameState.gm.hasSnapPlatform;
 
   ctx.save();
 
-  // If magnetic snapped to a platform, draw a subtle dashed guide line from raw cursor to snap Y
-  if (Math.abs(rawY - gy) > 4) {
+  // If magnetic snapped to a platform, draw a prominent laser guideline from raw cursor to snap Y
+  if (Math.abs(rawY - gy) > 2) {
     ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = canPlace ? 'rgba(0, 255, 136, 0.7)' : 'rgba(255, 0, 60, 0.5)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(gx + selectedDef.width / 2, rawY);
     ctx.lineTo(gx + selectedDef.width / 2, gy);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    // Snapped target platform base plate brackets
+    ctx.strokeStyle = canPlace ? '#00ff88' : '#ff003c';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(gx - 4, gy + selectedDef.height);
+    ctx.lineTo(gx + selectedDef.width + 4, gy + selectedDef.height);
+    ctx.stroke();
   }
 
   ctx.lineWidth = 2;
   if (canPlace) {
-    ctx.strokeStyle = '#00ff66';
-    ctx.fillStyle = 'rgba(0, 255, 102, 0.2)';
-    ctx.shadowColor = '#00ff66';
-    ctx.shadowBlur = 10;
+    ctx.strokeStyle = '#00ff88';
+    ctx.fillStyle = 'rgba(0, 255, 136, 0.22)';
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = 12;
   } else {
-    ctx.strokeStyle = '#ff0033';
-    ctx.fillStyle = 'rgba(255, 0, 51, 0.2)';
+    ctx.strokeStyle = '#ff003c';
+    ctx.fillStyle = 'rgba(255, 0, 60, 0.22)';
+    ctx.shadowColor = '#ff003c';
+    ctx.shadowBlur = 8;
   }
 
   ctx.fillRect(gx, gy, selectedDef.width, selectedDef.height);
   ctx.strokeRect(gx, gy, selectedDef.width, selectedDef.height);
 
-  // If Hologram Bluff (PHANTOM): draw small 'P' marker only for GM
-  if (selectedDef.id === 'PHANTOM') {
-    ctx.font = 'bold 11px monospace';
-    ctx.fillStyle = '#00ff66';
-    ctx.textAlign = 'center';
-    ctx.fillText('P', gx + selectedDef.width / 2, gy + selectedDef.height - 4);
+  // Draw Trap Blueprint Glyph Preview
+  ctx.font = 'bold 9px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = canPlace ? '#00ff88' : '#ff003c';
+  ctx.fillText(selectedDef.id, gx + selectedDef.width / 2, gy + selectedDef.height / 2 + 3);
+
+  // If snapped to a platform, draw small status badge
+  if (hasSnap) {
+    ctx.font = '8px monospace';
+    ctx.fillStyle = '#00f0ff';
+    ctx.fillText('▲ MAGNETIC SNAP', gx + selectedDef.width / 2, gy - 6);
   }
 
   // Crosshair
-  ctx.strokeStyle = canPlace ? '#00ff66' : '#ff0033';
+  ctx.strokeStyle = canPlace ? '#00ff88' : '#ff003c';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(gx - 6, gy + selectedDef.height / 2);
-  ctx.lineTo(gx + selectedDef.width + 6, gy + selectedDef.height / 2);
-  ctx.moveTo(gx + selectedDef.width / 2, gy - 6);
-  ctx.lineTo(gx + selectedDef.width / 2, gy + selectedDef.height + 6);
+  ctx.moveTo(gx - 8, gy + selectedDef.height / 2);
+  ctx.lineTo(gx + selectedDef.width + 8, gy + selectedDef.height / 2);
+  ctx.moveTo(gx + selectedDef.width / 2, gy - 8);
+  ctx.lineTo(gx + selectedDef.width / 2, gy + selectedDef.height + 8);
   ctx.stroke();
 
   ctx.restore();
@@ -1075,12 +1087,31 @@ export function updateDOMHUD() {
   }
 
   const domDist = document.getElementById('hudDistance');
+  const distFill = document.getElementById('hudDistFill');
   if (domDist) {
     if (GameState.gameMode === 'ENDLESS') {
-      domDist.textContent = `${Math.floor(GameState.hero.x)}m (Pacing Wall: ${Math.floor(GameState.pacingWall.x)}m)`;
+      domDist.textContent = `${Math.floor(GameState.hero.x)}m (Wall: ${Math.floor(GameState.pacingWall.x)}m)`;
+      if (distFill) {
+        distFill.style.width = `${Math.min(100, (GameState.hero.x % 1000) / 10)}%`;
+      }
     } else {
       const pct = Math.floor(Math.min(100, (GameState.hero.x / GameState.finishPortal.x) * 100));
       domDist.textContent = `${pct}% (${Math.floor(GameState.hero.x)} / ${GameState.finishPortal.x}m)`;
+      if (distFill) {
+        distFill.style.width = `${pct}%`;
+      }
+    }
+  }
+
+  // Tactical Slow-Mo status badge
+  const slowMoBadge = document.getElementById('slowMoStatusBadge');
+  if (slowMoBadge) {
+    if (GameState.playStyle === 'SLOW_MO') {
+      slowMoBadge.style.display = 'inline-block';
+      slowMoBadge.textContent = `SLOW-MO: ${Math.floor(GameState.gm.slowMoFuel)}% [TAB]`;
+      slowMoBadge.style.color = GameState.gm.slowMoActive ? 'var(--cyan-neon)' : 'var(--text-dim)';
+    } else {
+      slowMoBadge.style.display = 'none';
     }
   }
 

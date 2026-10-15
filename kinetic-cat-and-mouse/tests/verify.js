@@ -6,7 +6,7 @@
 import { CONFIG } from '../src/config.js';
 import { GameState, resetRound, resetHero } from '../src/state.js';
 import { updateHero, updateGM, updatePacingWall, checkTrapInteractions, updatePhysics, checkAABB } from '../src/physics.js';
-import { inputState, clearFrameInputs } from '../src/input.js';
+import { inputState, clearFrameInputs, confirmBuildAndLaunch } from '../src/input.js';
 
 let passed = 0;
 let failed = 0;
@@ -248,6 +248,46 @@ GameState.hero.vy = 8;
 updateHero({});
 assert(GameState.hero.vx === 0, 'Directive 3: Horizontal collision stopped X movement before Y collision');
 
+console.log('\n--- TEST SUITE 5: Universal Magnetic Snapping for ALL 6 Traps ---');
+// Test magnetic snapping on platform at x=180-460, y=440
+const allTraps = ['SPIKE', 'ICE', 'WIND', 'PHANTOM', 'SPRING', 'LASER_GATE'];
+allTraps.forEach((trapKey) => {
+  resetRound(1);
+  GameState.gm.selectedTrapKey = trapKey;
+  GameState.gm.worldMouseX = 300;
+  GameState.gm.worldMouseY = 220; // In air above platform
+  updateGM({ leftClick: false, rightClick: false });
+
+  const def = CONFIG.TRAPS[trapKey];
+  const expectedSnapY = 440 - def.height;
+  assert(
+    GameState.gm.snapY === expectedSnapY,
+    `Universal Snap: Trap ${trapKey} (h=${def.height}) snapped to platform top (${GameState.gm.snapY} === ${expectedSnapY})`
+  );
+  assert(
+    GameState.gm.hasSnapPlatform === true,
+    `Universal Snap: Trap ${trapKey} detected snap platform (hasSnapPlatform === true)`
+  );
+});
+
+console.log('\n--- TEST SUITE 6: Turn-Based Confirmation Gate ---');
+resetRound(1);
+GameState.playStyle = 'TURN_BASED';
+GameState.turnPhase = 'BUILD';
+GameState.buildTimer = 0; // Timer expires!
+updatePhysics({});
+assert(
+  GameState.turnPhase === 'BUILD',
+  'Turn-Based Gate: Run did NOT auto-start on timer expiry (turnPhase remains BUILD)'
+);
+
+// Explicit Architect Confirmation launches the run
+confirmBuildAndLaunch();
+assert(
+  GameState.turnPhase === 'RUN',
+  'Turn-Based Gate: confirmBuildAndLaunch() successfully transitioned turnPhase to RUN'
+);
+
 console.log(`\n=============================================`);
 console.log(`TEST SUMMARY: ${passed} Passed, ${failed} Failed`);
 console.log(`=============================================`);
@@ -255,3 +295,4 @@ console.log(`=============================================`);
 if (failed > 0) {
   process.exit(1);
 }
+

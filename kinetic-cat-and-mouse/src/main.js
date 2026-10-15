@@ -6,8 +6,8 @@
 
 import { CONFIG } from './config.js';
 import { GameState, resetRound, resetMatch } from './state.js';
-import { inputState, initInput, syncWorldMouse, clearFrameInputs, syncChannel } from './input.js';
-import { updatePhysics } from './physics.js';
+import { inputState, initInput, syncWorldMouse, clearFrameInputs, syncChannel, confirmBuildAndLaunch, setSyncRoundOverCallback } from './input.js';
+import { updatePhysics, updateGM } from './physics.js';
 import { render, playSound } from './renderer.js';
 
 let canvas = null;
@@ -22,12 +22,15 @@ let domSubtitle = null;
 let domStats = null;
 let domActionBtn = null;
 let domLaunchBtn = null;
+let domConfirmLaunchBtn = null;
+let domArchitectBuildBar = null;
+let domHeroWaitingOverlay = null;
 
 let domPlayStyleSelect = null;
 let domGameModeSelect = null;
 let domOpenGmWindowBtn = null;
 
-// New Modal Overlays
+// Modal Overlays
 let domMainMenuOverlay = null;
 let domPauseOverlay = null;
 let domHowToPlayOverlay = null;
@@ -55,6 +58,9 @@ function init() {
   domStats = document.getElementById('actionStats');
   domActionBtn = document.getElementById('actionBtn');
   domLaunchBtn = document.getElementById('launchHeroBtn');
+  domConfirmLaunchBtn = document.getElementById('confirmLaunchBtn');
+  domArchitectBuildBar = document.getElementById('architectBuildBar');
+  domHeroWaitingOverlay = document.getElementById('heroWaitingOverlay');
 
   domPlayStyleSelect = document.getElementById('playStyleSelect');
   domGameModeSelect = document.getElementById('gameModeSelect');
@@ -73,14 +79,17 @@ function init() {
 
   // Check URL parameters for role (?role=gm)
   if (typeof window !== 'undefined' && window.location.search.includes('role=gm')) {
-    GameState.playStyle = 'TWO_SCREEN';
-    if (domPlayStyleSelect) domPlayStyleSelect.value = 'TWO_SCREEN';
+    GameState.twoScreenConnected = true;
+    document.body.classList.add('role-gm');
     document.title = 'Kinetic Cat-and-Mouse // GM Blueprint View';
   }
 
   // Initialize Round 1 on Level 1
   GameState.initLevel(1);
   resetRound(1);
+
+  // Register Round Over sync callback
+  setSyncRoundOverCallback(endRound);
 
   // Start 60 FPS requestAnimationFrame loop
   requestAnimationFrame(gameLoop);
@@ -94,14 +103,19 @@ function setupEventListeners() {
     domActionBtn.addEventListener('click', handleActionClick);
   }
 
-  // Turn-Based Launch Hero Button
+  // Turn-Based Confirm & Launch Run Button
+  if (domConfirmLaunchBtn) {
+    domConfirmLaunchBtn.addEventListener('click', () => {
+      confirmBuildAndLaunch();
+      playSound('placeTrap');
+    });
+  }
+
+  // Turn-Based Launch Hero Button (legacy ID support)
   if (domLaunchBtn) {
     domLaunchBtn.addEventListener('click', () => {
-      if (GameState.playStyle === 'TURN_BASED' && GameState.turnPhase === 'BUILD') {
-        GameState.turnPhase = 'RUN';
-        domLaunchBtn.style.display = 'none';
-        playSound('placeTrap');
-      }
+      confirmBuildAndLaunch();
+      playSound('placeTrap');
     });
   }
 
@@ -185,6 +199,7 @@ function setupEventListeners() {
     pauseBtnRestart.addEventListener('click', () => {
       togglePause();
       resetRound(GameState.currentRound);
+      if (syncChannel) syncChannel.postMessage({ type: 'RESTART_ROUND', roundNumber: GameState.currentRound });
     });
   }
   if (pauseBtnHowToPlay) pauseBtnHowToPlay.addEventListener('click', () => showHowToPlay('hero'));
@@ -263,6 +278,7 @@ function setupEventListeners() {
 }
 
 function openGmWindow() {
+  GameState.twoScreenConnected = true;
   const url = window.location.origin + window.location.pathname + '?role=gm';
   window.open(url, '_blank', 'width=1280,height=720,menubar=no,toolbar=no');
 }
@@ -338,51 +354,79 @@ function gameLoop() {
 
   // 2. State & Physics Update (Frozen when paused)
   if (GameState.phase === 'PLAYING' && !GameState.isPaused) {
-    let shouldStepPhysics = true;
+    const isGmRole = typeof window !== 'undefined' && window.location.search.includes('role=gm');
 
-    // Tactical Slow-Mo Bullet Time (25% speed)
-    if (GameState.playStyle === 'SLOW_MO' && GameState.gm.slowMoActive) {
-      slowMoStepCounter++;
-      if (slowMoStepCounter % 4 !== 0) {
-        shouldStepPhysics = false;
+    if (isGmRole) {
+      // In GM Blueprint View: GM places/salvages traps & pans camera
+      updateGM(inputState, playSound);
+
+      // Camera smoothly tracks Hero during RUN phase
+      if (GameState.turnPhase === 'RUN') {
+        const targetCamX = Math.max(0, GameState.hero.x - 280);
+        const maxCam = CONFIG.LEVEL_WIDTH - CONFIG.CANVAS_WIDTH;
+        GameState.cameraX += (Math.min(maxCam, targetCamX) - GameState.cameraX) * 0.1;
       }
-    }
+    } else {
+      let shouldStepPhysics = true;
 
-    if (shouldStepPhysics) {
-      const physicsStatus = updatePhysics(inputState, playSound);
-
-      // Manage Turn-Based Launch Button visibility
-      if (domLaunchBtn) {
-        if (GameState.playStyle === 'TURN_BASED' && GameState.turnPhase === 'BUILD') {
-          domLaunchBtn.style.display = 'block';
-        } else {
-          domLaunchBtn.style.display = 'none';
+      // Tactical Slow-Mo Bullet Time (25% speed)
+      if (GameState.playStyle === 'SLOW_MO' && GameState.gm.slowMoActive) {
+        slowMoStepCounter++;
+        if (slowMoStepCounter % 4 !== 0) {
+          shouldStepPhysics = false;
         }
       }
 
-      // Instant Win Condition for Round 2 in Levels Mode:
-      // If Round 1 Hero didn't finish, and Round 2 Hero surpasses Round 1's distance
-      if (
-        GameState.gameMode !== 'ENDLESS' &&
-        GameState.currentRound === 2 &&
-        GameState.roundScores.round1Distance < GameState.finishPortal.x &&
-        GameState.hero.x > GameState.roundScores.round1Distance &&
-        GameState.hero.hp > 0
-      ) {
-        endRound('SURPASSED');
-      } else if (physicsStatus === 'FINISHED') {
-        endRound('FINISHED');
-      } else if (physicsStatus === 'DIED') {
-        endRound('ELIMINATED');
+      if (shouldStepPhysics) {
+        const physicsStatus = updatePhysics(inputState, playSound);
+
+        // Instant Win Condition for Round 2 in Levels Mode:
+        // If Round 1 Hero didn't finish, and Round 2 Hero surpasses Round 1's distance
+        if (
+          GameState.gameMode !== 'ENDLESS' &&
+          GameState.currentRound === 2 &&
+          GameState.roundScores.round1Distance < GameState.finishPortal.x &&
+          GameState.hero.x > GameState.roundScores.round1Distance &&
+          GameState.hero.hp > 0
+        ) {
+          endRound('SURPASSED');
+        } else if (physicsStatus === 'FINISHED') {
+          endRound('FINISHED');
+        } else if (physicsStatus === 'DIED') {
+          endRound('ELIMINATED');
+        }
       }
+    }
+
+    // Manage Turn-Based Launch & Standby Overlays
+    const isTurnBasedBuild = GameState.playStyle === 'TURN_BASED' && GameState.turnPhase === 'BUILD';
+    const isTwoScreen = GameState.twoScreenConnected || isGmRole;
+
+    if (isTurnBasedBuild) {
+      if (isGmRole) {
+        // GM window: show architect build bar, hide hero waiting overlay
+        if (domArchitectBuildBar) domArchitectBuildBar.style.display = 'flex';
+        if (domHeroWaitingOverlay) domHeroWaitingOverlay.classList.add('hidden');
+      } else if (isTwoScreen) {
+        // Hero window in 2-screen mode: show waiting overlay, hide architect build bar
+        if (domHeroWaitingOverlay) domHeroWaitingOverlay.classList.remove('hidden');
+        if (domArchitectBuildBar) domArchitectBuildBar.style.display = 'none';
+      } else {
+        // Single-screen local turn-based mode: show architect build bar so GM can click confirm
+        if (domArchitectBuildBar) domArchitectBuildBar.style.display = 'flex';
+        if (domHeroWaitingOverlay) domHeroWaitingOverlay.classList.add('hidden');
+      }
+    } else {
+      if (domArchitectBuildBar) domArchitectBuildBar.style.display = 'none';
+      if (domHeroWaitingOverlay) domHeroWaitingOverlay.classList.add('hidden');
     }
 
     // 3. Two-Screen State Broadcast (Hero window streams state to GM window)
     if (
       syncChannel &&
       typeof window !== 'undefined' &&
-      !window.location.search.includes('role=gm') &&
-      GameState.frameCount % 3 === 0
+      !isGmRole &&
+      GameState.frameCount % 2 === 0
     ) {
       syncChannel.postMessage({
         type: 'STATE_SNAPSHOT',
@@ -390,10 +434,15 @@ function gameLoop() {
         heroY: GameState.hero.y,
         heroHp: GameState.hero.hp,
         heroShield: GameState.hero.shield,
+        heroFacing: GameState.hero.facing,
+        heroDashTimer: GameState.hero.dashTimer,
+        heroIsGrounded: GameState.hero.isGrounded,
         wallX: GameState.pacingWall.x,
         energy: GameState.gm.energy,
         traps: GameState.traps,
-        frameCount: GameState.frameCount
+        frameCount: GameState.frameCount,
+        turnPhase: GameState.turnPhase,
+        phase: GameState.phase
       });
     }
   }
@@ -428,6 +477,15 @@ function formatTime(frames) {
 export function endRound(reason) {
   if (GameState.phase !== 'PLAYING') return;
   if (GameState.isPaused) return;
+
+  if (syncChannel && typeof window !== 'undefined' && !window.location.search.includes('role=gm')) {
+    syncChannel.postMessage({
+      type: 'ROUND_OVER',
+      reason,
+      heroX: GameState.hero.x,
+      frameCount: GameState.frameCount
+    });
+  }
 
   // Endless Mode Game Over
   if (GameState.gameMode === 'ENDLESS') {
@@ -555,14 +613,23 @@ function handleActionClick() {
   if (GameState.phase === 'ROUND_OVER') {
     hideOverlay();
     resetRound(2);
+    if (syncChannel) {
+      syncChannel.postMessage({ type: 'RESTART_ROUND', roundNumber: 2 });
+    }
   } else if (GameState.phase === 'MATCH_OVER') {
     hideOverlay();
     if (GameState.gameMode !== 'ENDLESS' && GameState.currentLevel < 4) {
       GameState.initLevel(GameState.currentLevel + 1);
       if (domGameModeSelect) domGameModeSelect.value = `CAMPAIGN_${GameState.currentLevel}`;
       resetRound(1);
+      if (syncChannel) {
+        syncChannel.postMessage({ type: 'RESTART_ROUND', roundNumber: 1 });
+      }
     } else {
       resetMatch();
+      if (syncChannel) {
+        syncChannel.postMessage({ type: 'RESTART_ROUND', roundNumber: 1 });
+      }
     }
   }
 }

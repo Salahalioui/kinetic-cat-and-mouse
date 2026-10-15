@@ -12,6 +12,7 @@ export const GameState = {
   currentLevel: 1,         // 1 to 4 in LEVELS mode
   turnPhase: 'BUILD',      // 'BUILD' | 'RUN' in TURN_BASED style
   buildTimer: CONFIG.GM.BUILD_PHASE_SECONDS * 60,
+  twoScreenConnected: false,
 
   isPaused: false,
   soundVolume: 1.0,

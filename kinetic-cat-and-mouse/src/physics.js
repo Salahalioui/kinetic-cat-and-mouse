@@ -312,38 +312,41 @@ export function updateGM(input, playSound) {
   const trapW = selectedDef?.width || 40;
   const trapH = selectedDef?.height || 20;
 
-  // 2. Magnetic Platform Snapping for surface traps (SPIKE, ICE, PHANTOM, SPRING)
+  // 2. Universal Magnetic Platform Snapping for ALL Traps (Spikes, Ice, Wind, Phantom, Spring, Laser Gate)
   let placeY = rawGridY;
-  const isSurfaceTrap = ['SPIKE', 'ICE', 'PHANTOM', 'SPRING'].includes(selectedDef?.id);
+  let bestPlat = null;
+  let minDy = Infinity;
 
-  if (isSurfaceTrap) {
-    let bestPlat = null;
-    let minDy = Infinity;
-    // First, look for a platform below or at cursor level
+  // Search for the most appropriate platform in the cursor's column:
+  for (const plat of GameState.platforms) {
+    if (gridX + trapW > plat.x && gridX < plat.x + plat.width) {
+      const dy = plat.y - (rawGridY + trapH);
+      // Prioritize platforms below or at cursor level
+      if (dy >= -40 && dy < minDy) {
+        minDy = dy;
+        bestPlat = plat;
+      }
+    }
+  }
+
+  // Fallback: If no platform below cursor, snap to closest platform vertically in this column
+  if (!bestPlat) {
     for (const plat of GameState.platforms) {
       if (gridX + trapW > plat.x && gridX < plat.x + plat.width) {
-        const dy = plat.y - (rawGridY + trapH);
-        if (dy >= -40 && dy < minDy) {
-          minDy = dy;
+        const distY = Math.abs(plat.y - (rawGridY + trapH));
+        if (distY < minDy) {
+          minDy = distY;
           bestPlat = plat;
         }
       }
     }
-    // If no platform below cursor, snap to the closest platform at this X column
-    if (!bestPlat) {
-      for (const plat of GameState.platforms) {
-        if (gridX + trapW > plat.x && gridX < plat.x + plat.width) {
-          const distY = Math.abs(plat.y - rawGridY);
-          if (distY < minDy) {
-            minDy = distY;
-            bestPlat = plat;
-          }
-        }
-      }
-    }
-    if (bestPlat) {
-      placeY = bestPlat.y - trapH;
-    }
+  }
+
+  if (bestPlat) {
+    placeY = bestPlat.y - trapH;
+    GameState.gm.hasSnapPlatform = true;
+  } else {
+    GameState.gm.hasSnapPlatform = false;
   }
   GameState.gm.snapY = placeY;
 
@@ -637,11 +640,9 @@ export function updatePhysics(input, playSound) {
   if (GameState.playStyle === 'TURN_BASED' && GameState.turnPhase === 'BUILD') {
     if (GameState.buildTimer > 0) {
       GameState.buildTimer--;
-    } else {
-      GameState.turnPhase = 'RUN';
     }
-
-    // Only GM can move/pan and place traps during BUILD phase
+    // Note: The run phase strictly begins only when the Architect confirms via button or shortcut.
+    // The Hero remains stopped and waiting on their screen until confirmation.
     updateGM(input, playSound);
     return 'BUILD';
   }

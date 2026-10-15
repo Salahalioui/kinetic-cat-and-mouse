@@ -17,7 +17,7 @@
       <!-- Top HUD: Hero HP, Stopwatch Timer, Round Info, Distance, Style & Mode Badges -->
       <header class="hud-top">
         <div class="hud-card hero-card">
-          <div class="card-label">HERO INTEGRITY</div>
+          <div class="card-label">RUNNER INTEGRITY</div>
           <div id="heroHpContainer" class="hero-hp-container">
             <span class="hp-heart active" id="hpHeart1"></span>
             <span class="hp-heart active" id="hpHeart2"></span>
@@ -30,7 +30,7 @@
         <div class="match-center">
           <!-- Play Style & Mode Switcher Bar with Quick Action Buttons -->
           <div class="mode-bar">
-            <button id="hudMenuBtn" class="cyber-btn-small" title="Return to Main Menu">MENU</button>
+            <button id="hudMenuBtn" class="cyber-btn-small" title="Return to Main Menu">☰ MENU</button>
             <button id="hudPauseBtn" class="cyber-btn-small" title="Pause Game (ESC / P)">⏸ PAUSE</button>
 
             <div class="select-group">
@@ -54,18 +54,25 @@
               </select>
             </div>
 
-            <button id="hudGuideBtn" class="cyber-btn-small" title="How To Play &amp; Rules">HOW TO PLAY</button>
+            <button id="hudGuideBtn" class="cyber-btn-small" title="How To Play &amp; Rules">📖 GUIDE</button>
             <button id="hudSettingsBtn" class="cyber-btn-small" title="Settings &amp; Audio">⚙</button>
-            <button id="openGmWindowBtn" class="cyber-btn-small highlight" title="Open GM Blueprint View in second window">2-SCREEN</button>
+            <button id="openGmWindowBtn" class="cyber-btn-small highlight" title="Open GM Blueprint View in second window">🖥️ 2-SCREEN</button>
           </div>
 
           <div class="timer-box">
             <span id="hudTimer" class="timer-display">00:00.0</span>
           </div>
-          <div class="match-meta">
-            <span id="hudRound" class="round-display">LEVEL 1 (ROUND 1 / 2)</span>
-            <span class="meta-separator">//</span>
-            <span id="hudDistance" class="dist-display">0% (0 / 2400m)</span>
+
+          <!-- Real-Time Progress Bar & Chevrons -->
+          <div class="progress-bar-wrapper">
+            <div class="progress-track">
+              <div id="hudDistFill" class="progress-fill"></div>
+            </div>
+            <div class="match-meta">
+              <span id="hudRound" class="round-display">LEVEL 1 (ROUND 1 / 2)</span>
+              <span class="meta-separator">//</span>
+              <span id="hudDistance" class="dist-display">0% (0 / 2400m)</span>
+            </div>
           </div>
         </div>
 
@@ -75,12 +82,24 @@
             <span id="energyText">150 / 200</span>
             <small>NRG</small>
           </div>
+          <div id="slowMoStatusBadge" class="slowmo-badge" style="display: none;">SLOW-MO 100%</div>
           <div id="gmRoleBadge" class="role-pill gm">P2: GM</div>
         </div>
       </header>
 
-      <!-- Turn-Based Launch Button Container (Shown only during BUILD phase) -->
-      <div id="turnBasedLaunchBar" class="turn-launch-bar">
+      <!-- Turn-Based Architect Build Command Bar (Shown during BUILD phase) -->
+      <div id="architectBuildBar" class="architect-build-bar" style="display: none;">
+        <div class="build-bar-tag">⚡ ARCHITECT BUILD PHASE</div>
+        <div class="build-bar-instructions">
+          Scroll Wheel or [A/D] to pan sector &bull; Left-Click to Snap Traps (Budget: 150 NRG)
+        </div>
+        <button id="confirmLaunchBtn" class="confirm-launch-btn">
+          ⚡ CONFIRM &amp; LAUNCH RUN &rarr;
+        </button>
+      </div>
+
+      <!-- Turn-Based Launch Button Container (Kept for backwards compatibility) -->
+      <div id="turnBasedLaunchBar" class="turn-launch-bar" style="display: none;">
         <button id="launchHeroBtn" class="launch-hero-btn">
           LAUNCH HERO &rarr;
         </button>
@@ -89,8 +108,8 @@
       <!-- Bottom HUD: Hero Controls, GM Trap Dock, and Architect Guide -->
       <footer class="hud-bottom">
         <!-- Hero Controls Guide -->
-        <div class="control-guide">
-          <div class="guide-title">Hero Controls</div>
+        <div class="control-guide runner-guide">
+          <div class="guide-title">Runner Controls</div>
           <div class="guide-row"><span class="key-tag">A</span> <span class="key-tag">D</span> Sprint</div>
           <div class="guide-row"><span class="key-tag">W</span> / <span class="key-tag">SPACE</span> Jump + Double-Jump</div>
           <div class="guide-row"><span class="key-tag">S</span> Fast-Fall / Ground Slam</div>
@@ -106,31 +125,43 @@
             </div>
           </div>
 
-          <!-- 6-Button Trap Selector Bar -->
+          <!-- 6-Button Trap Selector Bar with Universal Magnetic Snap Tags -->
           <div class="trap-selector-bar">
-            <button id="trapBtn_SPIKE" class="trap-btn active" data-trap="SPIKE" title="Laser Spikes (Cost: 25) - Surface Snap">
-              <span class="trap-name">[1] Spikes</span>
+            <button id="trapBtn_SPIKE" class="trap-btn active" data-trap="SPIKE" title="Laser Spikes (Cost: 25) - Magnetically Snaps to Platform">
+              <span class="trap-hotkey">[1]</span>
+              <span class="trap-name">Spikes</span>
               <span class="trap-cost">25 NRG</span>
+              <span class="trap-badge snap">SNAP</span>
             </button>
-            <button id="trapBtn_ICE" class="trap-btn" data-trap="ICE" title="Cryo Pad (Cost: 20) - Surface Snap">
-              <span class="trap-name">[2] Cryo Pad</span>
+            <button id="trapBtn_ICE" class="trap-btn" data-trap="ICE" title="Cryo Pad (Cost: 20) - Magnetically Snaps to Platform">
+              <span class="trap-hotkey">[2]</span>
+              <span class="trap-name">Cryo Pad</span>
               <span class="trap-cost">20 NRG</span>
+              <span class="trap-badge snap">SNAP</span>
             </button>
-            <button id="trapBtn_WIND" class="trap-btn" data-trap="WIND" title="Repulsor Fan (Cost: 40) - Click to Overclock">
-              <span class="trap-name">[3] Fan</span>
+            <button id="trapBtn_WIND" class="trap-btn" data-trap="WIND" title="Repulsor Fan (Cost: 40) - Magnetically Snaps &amp; Overclockable">
+              <span class="trap-hotkey">[3]</span>
+              <span class="trap-name">Repulsor</span>
               <span class="trap-cost">40 NRG</span>
+              <span class="trap-badge dyn">OVERCLOCK</span>
             </button>
-            <button id="trapBtn_PHANTOM" class="trap-btn" data-trap="PHANTOM" title="Hologram Bluff (Cost: 10) - 15% Cost Bluff">
-              <span class="trap-name">[4] Phantom</span>
+            <button id="trapBtn_PHANTOM" class="trap-btn" data-trap="PHANTOM" title="Hologram Bluff (Cost: 10) - Magnetically Snaps Bluff">
+              <span class="trap-hotkey">[4]</span>
+              <span class="trap-name">Phantom</span>
               <span class="trap-cost">10 NRG</span>
+              <span class="trap-badge snap">BLUFF</span>
             </button>
-            <button id="trapBtn_SPRING" class="trap-btn" data-trap="SPRING" title="Repulsor Spring (Cost: 25) - High Bounce">
-              <span class="trap-name">[5] Bounce</span>
+            <button id="trapBtn_SPRING" class="trap-btn" data-trap="SPRING" title="Repulsor Spring (Cost: 25) - Magnetically Snaps High Bounce">
+              <span class="trap-hotkey">[5]</span>
+              <span class="trap-name">Spring</span>
               <span class="trap-cost">25 NRG</span>
+              <span class="trap-badge snap">SNAP</span>
             </button>
-            <button id="trapBtn_LASER_GATE" class="trap-btn" data-trap="LASER_GATE" title="Laser Gate (Cost: 50) - Timed Barrier">
-              <span class="trap-name">[6] Gate</span>
+            <button id="trapBtn_LASER_GATE" class="trap-btn" data-trap="LASER_GATE" title="Laser Gate (Cost: 50) - Magnetically Snaps &amp; Overclockable">
+              <span class="trap-hotkey">[6]</span>
+              <span class="trap-name">Laser Gate</span>
               <span class="trap-cost">50 NRG</span>
+              <span class="trap-badge dyn">TIMED</span>
             </button>
           </div>
         </div>
@@ -141,9 +172,43 @@
           <div class="guide-row"><span class="key-tag">L-CLICK</span> Snap &amp; Construct Trap</div>
           <div class="guide-row"><span class="key-tag">WHEEL / A-D</span> Pan Level (Build Phase)</div>
           <div class="guide-row"><span class="key-tag">TAB / Q</span> Slow-Mo Bullet Time</div>
-          <div class="guide-row"><span class="key-tag">VACUUM</span> Wall Auto-Recycles Passed Traps</div>
+          <div class="guide-row"><span class="key-tag">SPACE / ENTER</span> Confirm &amp; Launch</div>
         </div>
       </footer>
+    </div>
+
+    <!-- HERO STANDBY OVERLAY (Shown on Hero screen during Turn-Based BUILD phase) -->
+    <div id="heroWaitingOverlay" class="modal-overlay hidden">
+      <div class="modal-card waiting-card">
+        <div class="radar-scan-container">
+          <div class="radar-ring outer"></div>
+          <div class="radar-ring middle"></div>
+          <div class="radar-ring inner"></div>
+          <div class="radar-sweep"></div>
+          <div class="radar-core-icon">⚡</div>
+        </div>
+        <div class="modal-header">STANDBY PROTOCOL ACTIVE</div>
+        <h2 class="modal-title">ARCHITECT CONSTRUCTING GAUNTLET</h2>
+        <p class="modal-subtitle">
+          The Predictive Architect is currently placing obstacles and traps along the sector.<br>
+          Runner systems are locked on the launchpad.
+        </p>
+
+        <div class="waiting-status-box">
+          <div class="status-indicator">
+            <span class="blinking-dot"></span>
+            <span class="status-text">AWAITING ARCHITECT CONFIRMATION &amp; LAUNCH...</span>
+          </div>
+          <div class="status-details">
+            Round Budget: <strong style="color: var(--magenta-neon)">150 NRG</strong> &bull; Pacing Wall primed
+          </div>
+        </div>
+
+        <div class="scanning-laser-line"></div>
+        <div class="waiting-hint">
+          The run will begin the exact instant the Architect clicks "CONFIRM &amp; LAUNCH RUN"!
+        </div>
+      </div>
     </div>
 
     <!-- MAIN MENU OVERLAY -->
@@ -237,8 +302,8 @@
         <div id="tabContentArchitect" class="tab-content">
           <div class="guide-feature-grid">
             <div class="guide-item">
-              <strong>🎯 Magnetic Platform Snapping</strong>
-              <p>Surface traps (Spikes, Ice, Springs, Phantoms) automatically snap vertically to the top of the nearest platform under the mouse. Simply aim left/right!</p>
+              <strong>🎯 Universal Magnetic Snapping</strong>
+              <p>All traps (Spikes, Ice, Wind, Phantom, Spring, Laser Gate) automatically snap vertically to the platform top surface under the cursor. Effortless 1-click placement!</p>
             </div>
             <div class="guide-item">
               <strong>🛡️ Safe-Zone Halo (220px)</strong>
@@ -266,8 +331,8 @@
               <p>If Player 1 died, Player 2 wins instantly by surpassing Player 1's distance. If both finish the course, the player with the fastest extraction time wins!</p>
             </div>
             <div class="guide-item">
-              <strong>⏳ Turn-Based vs Real-Time</strong>
-              <p>In Turn-Based mode, GM gets 20 seconds of paused planning to build traps along the course. In Real-Time, build on the fly or use Tactical Slow-Mo (<kbd>Tab</kbd>).</p>
+              <strong>⏳ Turn-Based Mode Flow</strong>
+              <p>In Turn-Based mode, the Architect gets a 150 NRG budget to construct traps. The Hero is stopped and waiting until the Architect clicks <strong>"CONFIRM &amp; LAUNCH RUN"</strong>!</p>
             </div>
             <div class="guide-item">
               <strong>🖥️ Zero-Server 2-Screen Mode</strong>
@@ -290,7 +355,7 @@
 
         <div class="settings-form">
           <div class="setting-row">
-            <label for="settingAudioMute">Sound FX:</label>
+            <label for="settingAudioMuteBtn">Sound FX:</label>
             <button id="settingAudioMuteBtn" class="cyber-btn-small">MUTE / UNMUTE</button>
           </div>
 
@@ -303,7 +368,7 @@
           <div class="setting-row">
             <label for="settingPlayStyle">Default Play Style:</label>
             <select id="settingPlayStyle" class="cyber-select">
-              <option value="TURN_BASED">Turn-Based Architect (20s Build)</option>
+              <option value="TURN_BASED">Turn-Based Architect</option>
               <option value="REAL_TIME">Real-Time Classic</option>
               <option value="SLOW_MO">Tactical Slow-Mo</option>
               <option value="TWO_SCREEN">Two-Screen (Dual Window)</option>

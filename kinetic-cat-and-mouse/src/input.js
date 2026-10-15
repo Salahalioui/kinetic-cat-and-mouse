@@ -87,6 +87,35 @@ export function initInput(canvas) {
     syncChannel.onmessage = (event) => {
       handleSyncMessage(event.data);
     };
+
+    // If opening as GM window, request full state snapshot from Hero authoritative window
+    if (typeof window !== 'undefined' && window.location.search.includes('role=gm')) {
+      syncChannel.postMessage({ type: 'REQUEST_SYNC' });
+    }
+  }
+}
+
+/**
+ * Confirms the Architect build phase and launches the run simultaneously on both screens
+ */
+export function confirmBuildAndLaunch() {
+  if (GameState.turnPhase !== 'BUILD') return;
+  GameState.turnPhase = 'RUN';
+
+  if (syncChannel) {
+    syncChannel.postMessage({
+      type: 'CONFIRM_BUILD',
+      senderRole: (typeof window !== 'undefined' && window.location.search.includes('role=gm')) ? 'gm' : 'hero'
+    });
+  }
+
+  if (typeof document !== 'undefined') {
+    const heroWaiting = document.getElementById('heroWaitingOverlay');
+    if (heroWaiting) heroWaiting.classList.add('hidden');
+    const architectBar = document.getElementById('architectBuildBar');
+    if (architectBar) architectBar.style.display = 'none';
+    const launchBar = document.getElementById('turnBasedLaunchBar');
+    if (launchBar) launchBar.style.display = 'none';
   }
 }
 
@@ -96,13 +125,62 @@ export function initInput(canvas) {
 function handleSyncMessage(data) {
   if (!data) return;
 
-  if (data.type === 'GM_ACTION') {
+  if (data.type === 'CONFIRM_BUILD') {
+    GameState.turnPhase = 'RUN';
+    if (typeof document !== 'undefined') {
+      const heroWaiting = document.getElementById('heroWaitingOverlay');
+      if (heroWaiting) heroWaiting.classList.add('hidden');
+      const architectBar = document.getElementById('architectBuildBar');
+      if (architectBar) architectBar.style.display = 'none';
+      const launchBar = document.getElementById('turnBasedLaunchBar');
+      if (launchBar) launchBar.style.display = 'none';
+    }
+  } else if (data.type === 'REQUEST_SYNC') {
+    // Authoritative Hero window marks two-screen connected and sends complete level and match data
+    GameState.twoScreenConnected = true;
+    if (syncChannel && typeof window !== 'undefined' && !window.location.search.includes('role=gm')) {
+      syncChannel.postMessage({
+        type: 'FULL_SYNC',
+        platforms: GameState.platforms,
+        pickups: GameState.pickups,
+        traps: GameState.traps,
+        finishPortal: GameState.finishPortal,
+        currentLevel: GameState.currentLevel,
+        currentRound: GameState.currentRound,
+        gameMode: GameState.gameMode,
+        playStyle: GameState.playStyle,
+        turnPhase: GameState.turnPhase,
+        energy: GameState.gm.energy,
+        pacingWall: GameState.pacingWall,
+        hero: GameState.hero,
+        roundScores: GameState.roundScores
+      });
+    }
+  } else if (data.type === 'FULL_SYNC') {
+    // GM window receives complete level data
+    if (typeof window !== 'undefined' && window.location.search.includes('role=gm')) {
+      if (data.platforms && data.platforms.length > 0) GameState.platforms = data.platforms;
+      if (data.pickups) GameState.pickups = data.pickups;
+      if (data.traps) GameState.traps = data.traps;
+      if (data.finishPortal) GameState.finishPortal = data.finishPortal;
+      if (data.currentLevel) GameState.currentLevel = data.currentLevel;
+      if (data.currentRound) GameState.currentRound = data.currentRound;
+      if (data.gameMode) GameState.gameMode = data.gameMode;
+      if (data.playStyle) GameState.playStyle = data.playStyle;
+      if (data.turnPhase) GameState.turnPhase = data.turnPhase;
+      if (data.energy !== undefined) GameState.gm.energy = data.energy;
+      if (data.pacingWall) GameState.pacingWall = data.pacingWall;
+      if (data.hero) Object.assign(GameState.hero, data.hero);
+      if (data.roundScores) GameState.roundScores = data.roundScores;
+    }
+  } else if (data.type === 'GM_ACTION') {
     // Action from GM window executed in Hero authoritative window
     if (data.action === 'SELECT_TRAP') {
       setTrapSelection(data.trapKey);
     } else if (data.action === 'PLACE_TRAP') {
       GameState.gm.worldMouseX = data.x;
       GameState.gm.worldMouseY = data.y;
+      GameState.gm.snapY = data.snapY !== undefined ? data.snapY : data.y;
       inputState.leftClick = true;
     } else if (data.action === 'SALVAGE') {
       GameState.gm.worldMouseX = data.x;
@@ -118,12 +196,33 @@ function handleSyncMessage(data) {
       GameState.hero.y = data.heroY;
       GameState.hero.hp = data.heroHp;
       GameState.hero.shield = data.heroShield;
+      GameState.hero.facing = data.heroFacing !== undefined ? data.heroFacing : 1;
+      GameState.hero.dashTimer = data.heroDashTimer || 0;
+      GameState.hero.isGrounded = data.heroIsGrounded || false;
       GameState.pacingWall.x = data.wallX;
       GameState.gm.energy = data.energy;
       GameState.traps = data.traps || [];
       GameState.frameCount = data.frameCount;
+      if (data.turnPhase) GameState.turnPhase = data.turnPhase;
+      if (data.phase) GameState.phase = data.phase;
+    }
+  } else if (data.type === 'ROUND_OVER') {
+    if (typeof window !== 'undefined' && window.location.search.includes('role=gm')) {
+      if (data.heroX !== undefined) GameState.hero.x = data.heroX;
+      if (data.frameCount !== undefined) GameState.frameCount = data.frameCount;
+      if (onSyncRoundOver) onSyncRoundOver(data.reason);
+    }
+  } else if (data.type === 'RESTART_ROUND') {
+    if (typeof window !== 'undefined' && window.location.search.includes('role=gm')) {
+      GameState.turnPhase = 'BUILD';
+      GameState.traps = [];
     }
   }
+}
+
+let onSyncRoundOver = null;
+export function setSyncRoundOverCallback(cb) {
+  onSyncRoundOver = cb;
 }
 
 /**
@@ -180,17 +279,28 @@ function handleKeyDown(e) {
     }
   }
 
-  // Turn-Based Camera Panning with Keys during BUILD phase
+  // Turn-Based BUILD phase: Hero controls are completely locked; GM camera panning & launch trigger
   if (GameState.playStyle === 'TURN_BASED' && GameState.turnPhase === 'BUILD') {
     if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
-      GameState.cameraX = Math.max(0, GameState.cameraX - 40);
+      GameState.cameraX = Math.max(0, GameState.cameraX - 60);
       return;
     }
     if (e.code === 'KeyD' || e.code === 'ArrowRight') {
       const maxCam = CONFIG.LEVEL_WIDTH - CONFIG.CANVAS_WIDTH;
-      GameState.cameraX = Math.min(maxCam, GameState.cameraX + 40);
+      GameState.cameraX = Math.min(maxCam, GameState.cameraX + 60);
       return;
     }
+    if (e.code === 'Space' || e.code === 'Enter') {
+      confirmBuildAndLaunch();
+      return;
+    }
+    // Allow trap selection keys 1-6 during build phase
+    if (TRAP_KEY_MAP[e.code]) {
+      setTrapSelection(TRAP_KEY_MAP[e.code]);
+      return;
+    }
+    // Block all other keys from moving the Hero during build phase
+    return;
   }
 
   // Hero Controls
