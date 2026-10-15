@@ -1,18 +1,18 @@
 /**
  * Kinetic Cat-and-Mouse: Predictive Architect
- * src/main.js - 60 FPS Game Loop & Stopwatch Role-Swap Manager
- * Module entry point.
+ * src/main.js - 60 FPS Game Loop, Play Style & Mode Manager, BroadcastChannel Sync,
+ * and Stopwatch Role-Swap Controller.
  */
 
 import { CONFIG } from './config.js';
 import { GameState, resetRound, resetMatch } from './state.js';
-import { inputState, initInput, syncWorldMouse, clearFrameInputs } from './input.js';
+import { inputState, initInput, syncWorldMouse, clearFrameInputs, syncChannel } from './input.js';
 import { updatePhysics } from './physics.js';
 import { render, playSound } from './renderer.js';
 
 let canvas = null;
 let ctx = null;
-let overlayTimeout = null;
+let slowMoStepCounter = 0;
 
 // DOM Cached Elements
 let domOverlay = null;
@@ -21,6 +21,10 @@ let domTitle = null;
 let domSubtitle = null;
 let domStats = null;
 let domActionBtn = null;
+let domLaunchBtn = null;
+let domPlayStyleSelect = null;
+let domGameModeSelect = null;
+let domOpenGmWindowBtn = null;
 
 /**
  * Initializes the canvas, input listeners, HUD modal bindings, and starts the game loop
@@ -43,9 +47,62 @@ function init() {
   domSubtitle = document.getElementById('actionSubtitle');
   domStats = document.getElementById('actionStats');
   domActionBtn = document.getElementById('actionBtn');
+  domLaunchBtn = document.getElementById('launchHeroBtn');
+
+  domPlayStyleSelect = document.getElementById('playStyleSelect');
+  domGameModeSelect = document.getElementById('gameModeSelect');
+  domOpenGmWindowBtn = document.getElementById('openGmWindowBtn');
 
   if (domActionBtn) {
     domActionBtn.addEventListener('click', handleActionClick);
+  }
+
+  if (domLaunchBtn) {
+    domLaunchBtn.addEventListener('click', () => {
+      if (GameState.playStyle === 'TURN_BASED' && GameState.turnPhase === 'BUILD') {
+        GameState.turnPhase = 'RUN';
+        domLaunchBtn.style.display = 'none';
+        playSound('placeTrap');
+      }
+    });
+  }
+
+  // Play Style Switcher
+  if (domPlayStyleSelect) {
+    domPlayStyleSelect.value = GameState.playStyle;
+    domPlayStyleSelect.addEventListener('change', (e) => {
+      GameState.playStyle = e.target.value;
+      resetRound(GameState.currentRound);
+    });
+  }
+
+  // Game Mode Switcher
+  if (domGameModeSelect) {
+    domGameModeSelect.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val === 'ENDLESS') {
+        GameState.initLevel('ENDLESS');
+      } else if (val.startsWith('CAMPAIGN_')) {
+        const lvl = parseInt(val.split('_')[1], 10);
+        GameState.initLevel(lvl);
+      }
+      resetRound(1);
+    });
+  }
+
+  // Two-Screen Window Opener
+  if (domOpenGmWindowBtn) {
+    domOpenGmWindowBtn.addEventListener('click', () => {
+      const url = window.location.origin + window.location.pathname + '?role=gm';
+      window.open(url, '_blank', 'width=1280,height=720,menubar=no,toolbar=no');
+    });
+  }
+
+  // Check URL parameters for role (?role=gm)
+  if (typeof window !== 'undefined' && window.location.search.includes('role=gm')) {
+    GameState.playStyle = 'TWO_SCREEN';
+    if (domPlayStyleSelect) domPlayStyleSelect.value = 'TWO_SCREEN';
+    document.title = 'Kinetic Cat-and-Mouse // GM Blueprint View';
   }
 
   // Keyboard shortcut (Space / Enter) to advance overlay modal
@@ -58,7 +115,8 @@ function init() {
   // Initialize Input System
   initInput(canvas);
 
-  // Initialize Round 1
+  // Initialize Round 1 on Level 1
+  GameState.initLevel(1);
   resetRound(1);
 
   // Start 60 FPS requestAnimationFrame loop
@@ -74,31 +132,73 @@ function gameLoop() {
 
   // 2. State & Physics Update
   if (GameState.phase === 'PLAYING') {
-    const physicsStatus = updatePhysics(inputState, playSound);
+    let shouldStepPhysics = true;
 
-    // Instant Win Condition for Round 2:
-    // If Round 1 Hero didn't finish, and Round 2 Hero surpasses Round 1's distance
+    // Tactical Slow-Mo Bullet Time (25% speed)
+    if (GameState.playStyle === 'SLOW_MO' && GameState.gm.slowMoActive) {
+      slowMoStepCounter++;
+      if (slowMoStepCounter % 4 !== 0) {
+        shouldStepPhysics = false;
+      }
+    }
+
+    if (shouldStepPhysics) {
+      const physicsStatus = updatePhysics(inputState, playSound);
+
+      // Manage Turn-Based Launch Button visibility
+      if (domLaunchBtn) {
+        if (GameState.playStyle === 'TURN_BASED' && GameState.turnPhase === 'BUILD') {
+          domLaunchBtn.style.display = 'block';
+        } else {
+          domLaunchBtn.style.display = 'none';
+        }
+      }
+
+      // Instant Win Condition for Round 2 in Campaign Mode:
+      // If Round 1 Hero didn't finish, and Round 2 Hero surpasses Round 1's distance
+      if (
+        GameState.gameMode === 'CAMPAIGN' &&
+        GameState.currentRound === 2 &&
+        GameState.roundScores.round1Distance < GameState.finishPortal.x &&
+        GameState.hero.x > GameState.roundScores.round1Distance &&
+        GameState.hero.hp > 0
+      ) {
+        endRound('SURPASSED');
+      } else if (physicsStatus === 'FINISHED') {
+        endRound('FINISHED');
+      } else if (physicsStatus === 'DIED') {
+        endRound('ELIMINATED');
+      }
+    }
+
+    // 3. Two-Screen State Broadcast (Hero window streams state to GM window)
     if (
-      GameState.currentRound === 2 &&
-      GameState.roundScores.round1Distance < GameState.finishPortal.x &&
-      GameState.hero.x > GameState.roundScores.round1Distance &&
-      GameState.hero.hp > 0
+      syncChannel &&
+      typeof window !== 'undefined' &&
+      !window.location.search.includes('role=gm') &&
+      GameState.frameCount % 3 === 0
     ) {
-      endRound('SURPASSED');
-    } else if (physicsStatus === 'FINISHED') {
-      endRound('FINISHED');
-    } else if (physicsStatus === 'DIED') {
-      endRound('ELIMINATED');
+      syncChannel.postMessage({
+        type: 'STATE_SNAPSHOT',
+        heroX: GameState.hero.x,
+        heroY: GameState.hero.y,
+        heroHp: GameState.hero.hp,
+        heroShield: GameState.hero.shield,
+        wallX: GameState.pacingWall.x,
+        energy: GameState.gm.energy,
+        traps: GameState.traps,
+        frameCount: GameState.frameCount
+      });
     }
   }
 
-  // 3. Render Canvas & HUD
+  // 4. Render Canvas & HUD
   render(ctx);
 
-  // 4. Clear single-frame impulse inputs
+  // 5. Clear single-frame impulse inputs
   clearFrameInputs();
 
-  // 5. Schedule next frame
+  // 6. Schedule next frame
   requestAnimationFrame(gameLoop);
 }
 
@@ -122,6 +222,32 @@ function formatTime(frames) {
 export function endRound(reason) {
   if (GameState.phase !== 'PLAYING') return;
 
+  // Endless Mode Game Over
+  if (GameState.gameMode === 'ENDLESS') {
+    GameState.phase = 'MATCH_OVER';
+    playSound('hit');
+
+    const dist = Math.floor(GameState.hero.x);
+    if (dist > GameState.endlessBestDistance) {
+      GameState.endlessBestDistance = dist;
+    }
+
+    if (domHeader) domHeader.textContent = 'UNLIMITED RUN CONCLUDED';
+    if (domTitle) domTitle.textContent = `${dist} METERS`;
+    if (domSubtitle) domSubtitle.textContent = `New Personal Record: ${GameState.endlessBestDistance}m`;
+    if (domStats) {
+      domStats.innerHTML = `
+        <div><strong>Distance Traveled:</strong> ${dist}m</div>
+        <div><strong>Survival Time:</strong> ${formatTime(GameState.frameCount)}</div>
+        <div style="margin-top: 6px; color: #00ff88;"><strong>Best Run:</strong> ${GameState.endlessBestDistance}m</div>
+      `;
+    }
+    if (domActionBtn) domActionBtn.textContent = 'RUN AGAIN';
+    showOverlay();
+    return;
+  }
+
+  // Campaign Mode Round 1 & Round 2
   if (GameState.currentRound === 1) {
     // -----------------------------------------------------------------------
     // ROUND 1 COMPLETE -> PREPARE ROLE-SWAP
@@ -174,11 +300,9 @@ export function endRound(reason) {
     const p2Completed = r2Dist >= GameState.finishPortal.x || reason === 'FINISHED';
 
     if (reason === 'SURPASSED') {
-      // P2 surpassed P1's death distance
       winner = 'PLAYER 2';
       winReason = `Player 2 surpassed Player 1's distance (${Math.floor(r2Dist)}m vs ${Math.floor(r1Dist)}m)!`;
     } else if (p1Completed && p2Completed) {
-      // Both reached portal, lowest time wins
       if (r2Time < r1Time) {
         winner = 'PLAYER 2';
         winReason = `Player 2 reached extraction faster (${formatTime(r2Time)} vs ${formatTime(r1Time)})!`;
@@ -196,7 +320,6 @@ export function endRound(reason) {
       winner = 'PLAYER 2';
       winReason = 'Player 2 completed the course, while Player 1 was eliminated!';
     } else {
-      // Neither completed
       if (r2Dist > r1Dist) {
         winner = 'PLAYER 2';
         winReason = `Player 2 traveled further (${Math.floor(r2Dist)}m vs ${Math.floor(r1Dist)}m)!`;
@@ -208,7 +331,7 @@ export function endRound(reason) {
 
     playSound('win');
 
-    if (domHeader) domHeader.textContent = 'MATCH RESULT';
+    if (domHeader) domHeader.textContent = `LEVEL ${GameState.currentLevel} RESULT`;
     if (domTitle) domTitle.textContent = winner === 'DRAW' ? "IT'S A DRAW!" : `${winner} WINS!`;
     if (domSubtitle) domSubtitle.textContent = winReason;
     if (domStats) {
@@ -217,7 +340,12 @@ export function endRound(reason) {
         <div><strong>Round 2 (P2 Hero, P1 GM):</strong> ${Math.floor(r2Dist)}m in ${formatTime(r2Time)}</div>
       `;
     }
-    if (domActionBtn) domActionBtn.textContent = 'PLAY NEW MATCH';
+
+    if (GameState.currentLevel < 4) {
+      if (domActionBtn) domActionBtn.textContent = `PROCEED TO LEVEL ${GameState.currentLevel + 1}`;
+    } else {
+      if (domActionBtn) domActionBtn.textContent = 'PLAY NEW MATCH';
+    }
     showOverlay();
   }
 }
@@ -228,7 +356,13 @@ function handleActionClick() {
     resetRound(2);
   } else if (GameState.phase === 'MATCH_OVER') {
     hideOverlay();
-    resetMatch();
+    if (GameState.gameMode === 'CAMPAIGN' && GameState.currentLevel < 4) {
+      GameState.initLevel(GameState.currentLevel + 1);
+      if (domGameModeSelect) domGameModeSelect.value = `CAMPAIGN_${GameState.currentLevel}`;
+      resetRound(1);
+    } else {
+      resetMatch();
+    }
   }
 }
 

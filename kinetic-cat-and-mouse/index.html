@@ -14,7 +14,7 @@
 
     <!-- Overlay HUD -->
     <div id="hudOverlay">
-      <!-- Top HUD: Hero HP, Stopwatch Timer, Round Info, Distance -->
+      <!-- Top HUD: Hero HP, Stopwatch Timer, Round Info, Distance, Style & Mode Badges -->
       <header class="hud-top">
         <div class="hud-card hero-card">
           <div class="card-label">HERO INTEGRITY</div>
@@ -22,16 +22,45 @@
             <span class="hp-heart active" id="hpHeart1"></span>
             <span class="hp-heart active" id="hpHeart2"></span>
             <span class="hp-heart active" id="hpHeart3"></span>
+            <span class="shield-badge" id="heroShieldBadge" style="display: none;">SHIELD x1</span>
           </div>
           <div id="heroRoleBadge" class="role-pill hero">P1: HERO</div>
         </div>
 
         <div class="match-center">
+          <!-- Play Style & Mode Switcher Bar -->
+          <div class="mode-bar">
+            <div class="select-group">
+              <label for="playStyleSelect">STYLE:</label>
+              <select id="playStyleSelect" class="cyber-select">
+                <option value="REAL_TIME">Real-Time (Classic)</option>
+                <option value="TURN_BASED" selected>Turn-Based (Architect)</option>
+                <option value="SLOW_MO">Tactical Slow-Mo</option>
+                <option value="TWO_SCREEN">Two-Screen (Dual Window)</option>
+              </select>
+            </div>
+
+            <div class="select-group">
+              <label for="gameModeSelect">MODE:</label>
+              <select id="gameModeSelect" class="cyber-select">
+                <option value="CAMPAIGN_1">Level 1: Neon Highway</option>
+                <option value="CAMPAIGN_2">Level 2: Repulsor Canyon</option>
+                <option value="CAMPAIGN_3">Level 3: Laser Gauntlet</option>
+                <option value="CAMPAIGN_4">Level 4: Apex Overdrive</option>
+                <option value="ENDLESS">Unlimited Run</option>
+              </select>
+            </div>
+
+            <button id="openGmWindowBtn" class="cyber-btn-small" title="Open GM Blueprint View in second window">
+              2-SCREEN
+            </button>
+          </div>
+
           <div class="timer-box">
             <span id="hudTimer" class="timer-display">00:00.0</span>
           </div>
           <div class="match-meta">
-            <span id="hudRound" class="round-display">ROUND 1 / 2</span>
+            <span id="hudRound" class="round-display">LEVEL 1 (ROUND 1 / 2)</span>
             <span class="meta-separator">//</span>
             <span id="hudDistance" class="dist-display">0% (0 / 4650m)</span>
           </div>
@@ -40,12 +69,19 @@
         <div class="hud-card gm-card">
           <div class="card-label">ARCHITECT ENERGY</div>
           <div class="energy-numeric">
-            <span id="energyText">100 / 200</span>
+            <span id="energyText">150 / 200</span>
             <small>NRG</small>
           </div>
           <div id="gmRoleBadge" class="role-pill gm">P2: GM</div>
         </div>
       </header>
+
+      <!-- Turn-Based Launch Button Container (Shown only during BUILD phase) -->
+      <div id="turnBasedLaunchBar" class="turn-launch-bar">
+        <button id="launchHeroBtn" class="launch-hero-btn">
+          LAUNCH HERO &rarr;
+        </button>
+      </div>
 
       <!-- Bottom HUD: Hero Controls, GM Trap Dock, and Architect Guide -->
       <footer class="hud-bottom">
@@ -53,8 +89,9 @@
         <div class="control-guide">
           <div class="guide-title">Hero Controls</div>
           <div class="guide-row"><span class="key-tag">A</span> <span class="key-tag">D</span> Sprint</div>
-          <div class="guide-row"><span class="key-tag">W</span> / <span class="key-tag">SPACE</span> Jump / Double-Jump</div>
-          <div class="guide-row"><span class="key-tag">SHIFT</span> Dash Burst (GM +15 NRG Tax)</div>
+          <div class="guide-row"><span class="key-tag">W</span> / <span class="key-tag">SPACE</span> Jump / Double-Jump (Coyote + Buffer)</div>
+          <div class="guide-row"><span class="key-tag">S</span> Fast-Fall / Ground Slam</div>
+          <div class="guide-row"><span class="key-tag">SHIFT</span> Dash Burst (Through Spikes!)</div>
         </div>
 
         <!-- Game Master Trap Construction Dock -->
@@ -66,23 +103,31 @@
             </div>
           </div>
 
-          <!-- 4-Button Trap Selector Bar -->
+          <!-- 6-Button Trap Selector Bar -->
           <div class="trap-selector-bar">
-            <button id="trapBtn_SPIKE" class="trap-btn active" data-trap="SPIKE" title="Laser Spikes (Cost: 25)">
-              <span class="trap-name">[1] Laser Spikes</span>
+            <button id="trapBtn_SPIKE" class="trap-btn active" data-trap="SPIKE" title="Laser Spikes (Cost: 25) - Surface Snap">
+              <span class="trap-name">[1] Spikes</span>
               <span class="trap-cost">25 NRG</span>
             </button>
-            <button id="trapBtn_ICE" class="trap-btn" data-trap="ICE" title="Cryo Pad (Cost: 20)">
+            <button id="trapBtn_ICE" class="trap-btn" data-trap="ICE" title="Cryo Pad (Cost: 20) - Surface Snap">
               <span class="trap-name">[2] Cryo Pad</span>
               <span class="trap-cost">20 NRG</span>
             </button>
-            <button id="trapBtn_WIND" class="trap-btn" data-trap="WIND" title="Repulsor Fan (Cost: 40)">
-              <span class="trap-name">[3] Repulsor Fan</span>
+            <button id="trapBtn_WIND" class="trap-btn" data-trap="WIND" title="Repulsor Fan (Cost: 40) - Click to Overclock">
+              <span class="trap-name">[3] Fan</span>
               <span class="trap-cost">40 NRG</span>
             </button>
-            <button id="trapBtn_PHANTOM" class="trap-btn" data-trap="PHANTOM" title="Hologram Bluff (Cost: 10)">
-              <span class="trap-name">[4] Hologram Bluff</span>
+            <button id="trapBtn_PHANTOM" class="trap-btn" data-trap="PHANTOM" title="Hologram Bluff (Cost: 10) - 15% Cost Bluff">
+              <span class="trap-name">[4] Phantom</span>
               <span class="trap-cost">10 NRG</span>
+            </button>
+            <button id="trapBtn_SPRING" class="trap-btn" data-trap="SPRING" title="Repulsor Spring (Cost: 25) - High Bounce">
+              <span class="trap-name">[5] Bounce</span>
+              <span class="trap-cost">25 NRG</span>
+            </button>
+            <button id="trapBtn_LASER_GATE" class="trap-btn" data-trap="LASER_GATE" title="Laser Gate (Cost: 50) - Timed Barrier">
+              <span class="trap-name">[6] Gate</span>
+              <span class="trap-cost">50 NRG</span>
             </button>
           </div>
         </div>
@@ -90,9 +135,10 @@
         <!-- GM Controls Guide -->
         <div class="control-guide gm-guide">
           <div class="guide-title">Architect Controls</div>
-          <div class="guide-row"><span class="key-tag">L-CLICK</span> Construct Trap (Grid 40px)</div>
-          <div class="guide-row"><span class="key-tag">L-CLICK (WIND)</span> Overclock Fan (20 NRG)</div>
-          <div class="guide-row"><span class="key-tag">R-CLICK</span> Salvage Behind Hero (50% NRG)</div>
+          <div class="guide-row"><span class="key-tag">L-CLICK</span> Snap &amp; Construct Trap</div>
+          <div class="guide-row"><span class="key-tag">WHEEL / A-D</span> Pan Level (Build Phase)</div>
+          <div class="guide-row"><span class="key-tag">TAB / Q</span> Slow-Mo Bullet Time</div>
+          <div class="guide-row"><span class="key-tag">AUTO-VACUUM</span> Wall Recycles Passed Traps (50% NRG)</div>
         </div>
       </footer>
     </div>

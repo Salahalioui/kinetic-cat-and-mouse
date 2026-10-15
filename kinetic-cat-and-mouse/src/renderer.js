@@ -1,7 +1,7 @@
 /**
  * Kinetic Cat-and-Mouse: Predictive Architect
  * src/renderer.js - HTML5 Canvas 2D Neon Renderer, Parallax Cyber Grid,
- * Safe-Zone Halo, Entity Visuals, DOM HUD, and Native Web Audio API Synthesizer.
+ * Safe-Zone Halo, Entity Visuals, Mini-Map Radar Bar, DOM HUD, and Native Web Audio API Synthesizer.
  *
  * Strict Directive 1: Zero External Assets (Canvas 2D primitives + Web Audio API).
  */
@@ -15,6 +15,8 @@ import { GameState } from './state.js';
 let audioCtx = null;
 
 function getAudioContext() {
+  if (typeof window === 'undefined') return null;
+
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (AudioContextClass) {
@@ -29,7 +31,7 @@ function getAudioContext() {
 
 /**
  * Procedural Web Audio Sound Synthesizer
- * @param {'jump'|'dash'|'placeTrap'|'hit'|'win'} type
+ * @param {'jump'|'dash'|'placeTrap'|'hit'|'win'|'spring'|'orb'|'shieldBreak'|'salvage'} type
  */
 export function playSound(type) {
   try {
@@ -57,7 +59,6 @@ export function playSound(type) {
       }
 
       case 'dash': {
-        // Futuristic supersonic sweep
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'triangle';
@@ -75,7 +76,6 @@ export function playSound(type) {
       }
 
       case 'placeTrap': {
-        // High-tech digital construction blip
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'square';
@@ -93,7 +93,6 @@ export function playSound(type) {
       }
 
       case 'hit': {
-        // Descending saw-wave impact buzz
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sawtooth';
@@ -111,7 +110,6 @@ export function playSound(type) {
       }
 
       case 'win': {
-        // Victorious fanfare arpeggio
         const notes = [440, 554.37, 659.25, 880, 1108.73, 1318.51];
         notes.forEach((freq, idx) => {
           const osc = ctx.createOscillator();
@@ -130,9 +128,77 @@ export function playSound(type) {
         });
         break;
       }
+
+      case 'spring': {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+        break;
+      }
+
+      case 'orb': {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(659.25, now);
+        osc.frequency.setValueAtTime(987.77, now + 0.08);
+
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.22);
+        break;
+      }
+
+      case 'shieldBreak': {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+        break;
+      }
+
+      case 'salvage': {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.setValueAtTime(600, now + 0.05);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.14);
+        break;
+      }
     }
   } catch (e) {
-    // Graceful fallback if Web Audio is suspended before user interaction
+    // Graceful fallback if Web Audio is suspended
   }
 }
 
@@ -148,6 +214,8 @@ const heroTrailBuffer = [];
  * @param {CanvasRenderingContext2D} ctx
  */
 export function render(ctx) {
+  if (!ctx) return;
+
   // 1. Clear Canvas & Draw Background with Parallax Cyber Grid
   ctx.fillStyle = COLORS.BG_DARK;
   ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
@@ -161,8 +229,13 @@ export function render(ctx) {
   // Draw Level Architecture (Platforms color-coded by lane)
   drawPlatforms(ctx);
 
-  // Draw Finish Portal (x = 4650)
-  drawFinishPortal(ctx);
+  // Draw Shield Pickups
+  drawPickups(ctx);
+
+  // Draw Finish Portal (Campaign Mode)
+  if (GameState.gameMode === 'CAMPAIGN') {
+    drawFinishPortal(ctx);
+  }
 
   // Round 2 Target Marker Line
   if (GameState.currentRound === 2 && GameState.roundScores.round1Distance > 0) {
@@ -175,7 +248,7 @@ export function render(ctx) {
   // Draw Safe-Zone Halo (translucent dashed anti-spam circle around Hero)
   drawSafeZoneHalo(ctx);
 
-  // Draw Hero (with dash trails and invulnerability blink)
+  // Draw Hero (with dash trails, shield aura, and invulnerability blink)
   drawHero(ctx);
 
   // Draw Deadly Pacing Wall
@@ -186,7 +259,18 @@ export function render(ctx) {
 
   ctx.restore(); // End World Transform
 
-  // 3. Update DOM HUD Elements
+  // 3. Screen-Space Overlays (Mini-Map Radar, Slow-Mo Vignette, Turn-Based Banner)
+  drawMiniMapRadar(ctx);
+
+  if (GameState.playStyle === 'SLOW_MO' && GameState.gm.slowMoActive) {
+    drawSlowMoVignette(ctx);
+  }
+
+  if (GameState.playStyle === 'TURN_BASED' && GameState.turnPhase === 'BUILD') {
+    drawTurnBasedBanner(ctx);
+  }
+
+  // 4. Update DOM HUD Elements
   updateDOMHUD();
 }
 
@@ -262,6 +346,39 @@ function drawPlatforms(ctx) {
 }
 
 /**
+ * Draws collectible Shield / Energy Orbs on High Lanes
+ */
+function drawPickups(ctx) {
+  const time = performance.now() * 0.005;
+
+  for (const p of GameState.pickups) {
+    if (p.collected) continue;
+
+    const cx = p.x + p.width / 2;
+    const cy = p.y + p.height / 2 + Math.sin(time * 3 + p.x) * 4;
+
+    ctx.save();
+    // Green energy glow
+    ctx.fillStyle = '#00ff88';
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = 14;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pulsing outer ring
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 12 + Math.sin(time * 6) * 2, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
+/**
  * Draws Safe-Zone Halo around Hero (radius = 220px)
  */
 function drawSafeZoneHalo(ctx) {
@@ -290,7 +407,7 @@ function drawSafeZoneHalo(ctx) {
 
 /**
  * Draws all placed traps:
- * SPIKE (triangles), ICE (cyan strip), WIND (fan + animated wind lines), PHANTOM (bluff)
+ * SPIKE, ICE, WIND, PHANTOM, SPRING, LASER_GATE
  */
 function drawTraps(ctx) {
   const time = performance.now() * 0.005;
@@ -303,7 +420,7 @@ function drawTraps(ctx) {
     switch (trap.type) {
       case 'SPIKE':
       case 'PHANTOM': {
-        // Red / Magenta Laser Spikes (Phantom looks visually identical)
+        // Red / Magenta Laser Spikes (Phantom looks identical to keep Hero guessing)
         ctx.fillStyle = CONFIG.TRAPS.SPIKE.color;
         ctx.shadowColor = CONFIG.TRAPS.SPIKE.color;
         ctx.shadowBlur = 12;
@@ -319,20 +436,17 @@ function drawTraps(ctx) {
           ctx.fill();
         }
 
-        // Base strip
         ctx.fillRect(trap.x, trap.y + trap.height - 3, trap.width, 3);
         break;
       }
 
       case 'ICE': {
-        // Glowing cyan frost strip
         ctx.fillStyle = CONFIG.TRAPS.ICE.color;
         ctx.shadowColor = CONFIG.TRAPS.ICE.color;
         ctx.shadowBlur = 14;
 
         ctx.fillRect(trap.x, trap.y, trap.width, trap.height);
 
-        // Frost crystalline shine
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
@@ -346,7 +460,6 @@ function drawTraps(ctx) {
         const isOverclocked = trap.overclockTimer > 0;
         const fanColor = isOverclocked ? '#ffaa00' : CONFIG.TRAPS.WIND.color;
 
-        // Fan Casing
         ctx.fillStyle = '#1a1805';
         ctx.fillRect(trap.x, trap.y, trap.width, trap.height);
         ctx.strokeStyle = fanColor;
@@ -355,7 +468,6 @@ function drawTraps(ctx) {
         ctx.shadowBlur = isOverclocked ? 20 : 10;
         ctx.strokeRect(trap.x, trap.y, trap.width, trap.height);
 
-        // Spinning Fan Blades
         const cx = trap.x + trap.width / 2;
         const cy = trap.y + trap.height / 2;
         const spinSpeed = isOverclocked ? time * 12 : time * 6;
@@ -373,7 +485,6 @@ function drawTraps(ctx) {
         ctx.stroke();
         ctx.restore();
 
-        // Repulsor Wind Stream (flowing up & left)
         const streamCount = 4;
         const streamRange = CONFIG.TRAPS.WIND.range;
         ctx.strokeStyle = isOverclocked ? 'rgba(255, 170, 0, 0.4)' : 'rgba(249, 248, 113, 0.3)';
@@ -395,6 +506,72 @@ function drawTraps(ctx) {
         }
         break;
       }
+
+      case 'SPRING': {
+        // Neon Bounce Pad
+        ctx.fillStyle = '#0a2218';
+        ctx.fillRect(trap.x, trap.y + trap.height - 6, trap.width, 6);
+        ctx.strokeStyle = CONFIG.TRAPS.SPRING.color;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = CONFIG.TRAPS.SPRING.color;
+        ctx.shadowBlur = 12;
+        ctx.strokeRect(trap.x, trap.y + trap.height - 6, trap.width, 6);
+
+        // Spring coil
+        const cx = trap.x + trap.width / 2;
+        const bouncePulse = Math.abs(Math.sin(time * 6)) * 4;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 10, trap.y + trap.height - 6);
+        ctx.lineTo(cx, trap.y + 4 + bouncePulse);
+        ctx.lineTo(cx + 10, trap.y + trap.height - 6);
+        ctx.stroke();
+
+        // Repulsor pad plate
+        ctx.fillStyle = CONFIG.TRAPS.SPRING.color;
+        ctx.fillRect(trap.x + 4, trap.y + bouncePulse, trap.width - 8, 4);
+        break;
+      }
+
+      case 'LASER_GATE': {
+        const isOverclocked = trap.overclockTimer > 0;
+        const gateColor = isOverclocked ? '#ffaa00' : CONFIG.TRAPS.LASER_GATE.color;
+
+        // Top and bottom emitter nodes
+        ctx.fillStyle = '#1a0505';
+        ctx.strokeStyle = gateColor;
+        ctx.lineWidth = 2;
+        ctx.fillRect(trap.x, trap.y, trap.width, 10);
+        ctx.strokeRect(trap.x, trap.y, trap.width, 10);
+        ctx.fillRect(trap.x, trap.y + trap.height - 10, trap.width, 10);
+        ctx.strokeRect(trap.x, trap.y + trap.height - 10, trap.width, 10);
+
+        if (trap.beamActive) {
+          // Pulsing vertical laser beam
+          ctx.fillStyle = gateColor;
+          ctx.shadowColor = gateColor;
+          ctx.shadowBlur = 18;
+          ctx.fillRect(trap.x + 6, trap.y + 10, trap.width - 12, trap.height - 20);
+
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(trap.x + trap.width / 2, trap.y + 10);
+          ctx.lineTo(trap.x + trap.width / 2, trap.y + trap.height - 10);
+          ctx.stroke();
+        } else {
+          // Inactive warning beam guide
+          ctx.strokeStyle = 'rgba(255, 77, 0, 0.2)';
+          ctx.setLineDash([4, 4]);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(trap.x + trap.width / 2, trap.y + 10);
+          ctx.lineTo(trap.x + trap.width / 2, trap.y + trap.height - 10);
+          ctx.stroke();
+        }
+        break;
+      }
     }
 
     ctx.restore();
@@ -402,7 +579,7 @@ function drawTraps(ctx) {
 }
 
 /**
- * Draws Hero with motion trail and invulnerability blink
+ * Draws Hero with motion trail, shield barrier aura, and invulnerability blink
  */
 function drawHero(ctx) {
   const hero = GameState.hero;
@@ -437,11 +614,26 @@ function drawHero(ctx) {
 
   // Invulnerability Blinking
   if (hero.invulnTimer > 0 && Math.floor(hero.invulnTimer / 4) % 2 === 0) {
-    return; // Skip drawing this frame for blink effect
+    return;
   }
 
   ctx.save();
   ctx.translate(hero.x, hero.y);
+
+  // Shield Bubble Aura if active
+  if (hero.shield > 0) {
+    ctx.save();
+    ctx.strokeStyle = '#00ff88';
+    ctx.fillStyle = 'rgba(0, 255, 136, 0.15)';
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = 15;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(CONFIG.HERO.WIDTH / 2, CONFIG.HERO.HEIGHT / 2, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // Main Hero Cyber Body
   ctx.fillStyle = COLORS.CYAN;
@@ -459,7 +651,7 @@ function drawHero(ctx) {
   const packX = hero.facing === 1 ? 0 : CONFIG.HERO.WIDTH - 4;
   ctx.fillRect(packX, 10, 4, 12);
 
-  // Feet / Jump tuck
+  // Feet / Running Animation
   ctx.fillStyle = COLORS.BLUE;
   if (hero.isGrounded) {
     const runAnim = Math.sin(GameState.frameCount * 0.3) * 3;
@@ -480,7 +672,7 @@ function drawHero(ctx) {
 }
 
 /**
- * Draws the Pacing Wall (glowing red vertical laser wall with sawtooth edges)
+ * Draws the Pacing Wall (glowing red laser wall with sawtooth energy teeth)
  */
 function drawPacingWall(ctx) {
   const wallX = GameState.pacingWall.x;
@@ -488,7 +680,7 @@ function drawPacingWall(ctx) {
 
   ctx.save();
 
-  // Red danger gradient behind the wall
+  // Danger gradient
   const grad = ctx.createLinearGradient(Math.max(0, wallX - 180), 0, wallX, 0);
   grad.addColorStop(0, 'rgba(255, 0, 60, 0.45)');
   grad.addColorStop(1, 'rgba(255, 0, 60, 0.0)');
@@ -505,7 +697,7 @@ function drawPacingWall(ctx) {
   ctx.lineTo(wallX, CONFIG.LEVEL_HEIGHT);
   ctx.stroke();
 
-  // Sawtooth energy teeth on the front edge
+  // Sawtooth energy teeth
   ctx.fillStyle = COLORS.PACING_WALL;
   const toothH = 24;
   const numTeeth = Math.ceil(CONFIG.LEVEL_HEIGHT / toothH);
@@ -535,7 +727,6 @@ function drawFinishPortal(ctx) {
   ctx.save();
   ctx.translate(cx, cy);
 
-  // Outer Golden Ring
   ctx.strokeStyle = COLORS.FINISH_GOLD;
   ctx.shadowColor = COLORS.FINISH_GOLD;
   ctx.shadowBlur = 24;
@@ -545,7 +736,6 @@ function drawFinishPortal(ctx) {
   ctx.ellipse(0, 0, 24, 42, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Rotating inner hexagon
   ctx.rotate(time);
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 1.5;
@@ -553,7 +743,6 @@ function drawFinishPortal(ctx) {
 
   ctx.restore();
 
-  // Portal text label
   ctx.font = 'bold 12px monospace';
   ctx.fillStyle = COLORS.FINISH_GOLD;
   ctx.textAlign = 'center';
@@ -578,7 +767,6 @@ function drawTargetToBeatMarker(ctx) {
   ctx.lineTo(targetX, CONFIG.LEVEL_HEIGHT);
   ctx.stroke();
 
-  // Marker flag at top
   ctx.fillStyle = COLORS.FINISH_GOLD;
   ctx.font = 'bold 11px monospace';
   ctx.textAlign = 'center';
@@ -588,19 +776,32 @@ function drawTargetToBeatMarker(ctx) {
 }
 
 /**
- * Draws the Game Master snapped grid ghost preview
+ * Draws the Game Master snapped grid ghost preview with magnetic snapping guideline
  */
 function drawGMPreview(ctx) {
   const selectedDef = CONFIG.TRAPS[GameState.gm.selectedTrapKey];
   if (!selectedDef) return;
 
   const gx = GameState.gm.worldMouseX;
-  const gy = GameState.gm.worldMouseY;
+  const rawY = GameState.gm.worldMouseY;
+  const gy = GameState.gm.snapY !== undefined ? GameState.gm.snapY : rawY;
   const canPlace = GameState.gm.canPlaceAtCursor;
 
   ctx.save();
-  ctx.lineWidth = 2;
 
+  // If magnetic snapped to a platform, draw a subtle dashed guide line from raw cursor to snap Y
+  if (Math.abs(rawY - gy) > 4) {
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(gx + selectedDef.width / 2, rawY);
+    ctx.lineTo(gx + selectedDef.width / 2, gy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.lineWidth = 2;
   if (canPlace) {
     ctx.strokeStyle = '#00ff66';
     ctx.fillStyle = 'rgba(0, 255, 102, 0.2)';
@@ -614,7 +815,7 @@ function drawGMPreview(ctx) {
   ctx.fillRect(gx, gy, selectedDef.width, selectedDef.height);
   ctx.strokeRect(gx, gy, selectedDef.width, selectedDef.height);
 
-  // If Hologram Bluff (PHANTOM): draw a small "P" marker ONLY inside the GM preview
+  // If Hologram Bluff (PHANTOM): draw small 'P' marker only for GM
   if (selectedDef.id === 'PHANTOM') {
     ctx.font = 'bold 11px monospace';
     ctx.fillStyle = '#00ff66';
@@ -636,7 +837,115 @@ function drawGMPreview(ctx) {
 }
 
 /**
- * Updates DOM HUD elements (HP hearts, stopwatch, energy bar, distances)
+ * Draws Mini-Map Radar Bar at top of canvas in screen coordinates
+ */
+function drawMiniMapRadar(ctx) {
+  const radarW = 460;
+  const radarH = 10;
+  const radarX = (CONFIG.CANVAS_WIDTH - radarW) / 2;
+  const radarY = 8;
+
+  const totalDist = GameState.gameMode === 'CAMPAIGN'
+    ? GameState.finishPortal.x
+    : Math.max(4000, GameState.hero.x + 1600);
+
+  ctx.save();
+
+  // Radar Background Track
+  ctx.fillStyle = 'rgba(10, 15, 26, 0.85)';
+  ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+  ctx.lineWidth = 1;
+  ctx.fillRect(radarX, radarY, radarW, radarH);
+  ctx.strokeRect(radarX, radarY, radarW, radarH);
+
+  // Current Camera Viewport bracket on Radar
+  const camStartPct = Math.max(0, Math.min(1, GameState.cameraX / totalDist));
+  const camEndPct = Math.max(0, Math.min(1, (GameState.cameraX + CONFIG.CANVAS_WIDTH) / totalDist));
+  ctx.fillStyle = 'rgba(0, 240, 255, 0.12)';
+  ctx.fillRect(radarX + camStartPct * radarW, radarY, (camEndPct - camStartPct) * radarW, radarH);
+
+  // Pacing Wall Marker (Red)
+  const wallPct = Math.max(0, Math.min(1, GameState.pacingWall.x / totalDist));
+  ctx.fillStyle = '#ff003c';
+  ctx.fillRect(radarX + wallPct * radarW - 2, radarY - 2, 4, radarH + 4);
+
+  // Traps markers (Yellow/Magenta tiny dots)
+  ctx.fillStyle = '#f9f871';
+  for (const trap of GameState.traps) {
+    if (!trap.active) continue;
+    const trapPct = Math.max(0, Math.min(1, trap.x / totalDist));
+    ctx.fillRect(radarX + trapPct * radarW - 1, radarY + 2, 2, radarH - 4);
+  }
+
+  // Hero Marker (Cyan pulsing dot)
+  const heroPct = Math.max(0, Math.min(1, GameState.hero.x / totalDist));
+  ctx.fillStyle = COLORS.CYAN;
+  ctx.shadowColor = COLORS.CYAN;
+  ctx.shadowBlur = 6;
+  ctx.fillRect(radarX + heroPct * radarW - 2, radarY - 3, 4, radarH + 6);
+
+  // Finish Portal Marker (Gold)
+  if (GameState.gameMode === 'CAMPAIGN') {
+    ctx.fillStyle = COLORS.FINISH_GOLD;
+    ctx.fillRect(radarX + radarW - 3, radarY - 2, 4, radarH + 4);
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Draws Tactical Slow-Mo screen-edge chromatic blur vignette
+ */
+function drawSlowMoVignette(ctx) {
+  ctx.save();
+  const grad = ctx.createRadialGradient(
+    CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2, 280,
+    CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2, 600
+  );
+  grad.addColorStop(0, 'rgba(0, 240, 255, 0)');
+  grad.addColorStop(1, 'rgba(0, 240, 255, 0.22)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+
+  // Slow-Mo Fuel Meter at bottom center
+  ctx.font = 'bold 11px monospace';
+  ctx.fillStyle = COLORS.CYAN;
+  ctx.textAlign = 'center';
+  ctx.fillText(`SLOW-MO ACTIVE: ${Math.floor(GameState.gm.slowMoFuel)}%`, CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT - 90);
+  ctx.restore();
+}
+
+/**
+ * Draws Turn-Based Build Phase Notice Banner
+ */
+function drawTurnBasedBanner(ctx) {
+  ctx.save();
+  const bannerW = 480;
+  const bannerH = 46;
+  const bx = (CONFIG.CANVAS_WIDTH - bannerW) / 2;
+  const by = 80;
+
+  ctx.fillStyle = 'rgba(10, 15, 26, 0.9)';
+  ctx.strokeStyle = COLORS.YELLOW;
+  ctx.lineWidth = 1.5;
+  ctx.fillRect(bx, by, bannerW, bannerH);
+  ctx.strokeRect(bx, by, bannerW, bannerH);
+
+  ctx.font = 'bold 12px monospace';
+  ctx.fillStyle = COLORS.YELLOW;
+  ctx.textAlign = 'center';
+  const remainingSecs = Math.ceil(GameState.buildTimer / 60);
+  ctx.fillText(`ARCHITECT BUILD PHASE // TIME REMAINING: ${remainingSecs}s`, CONFIG.CANVAS_WIDTH / 2, by + 18);
+
+  ctx.font = '10px monospace';
+  ctx.fillStyle = '#f0f6fc';
+  ctx.fillText('Scroll mouse wheel / A & D to pan camera. Place traps with 150 NRG budget!', CONFIG.CANVAS_WIDTH / 2, by + 34);
+
+  ctx.restore();
+}
+
+/**
+ * Updates DOM HUD elements (HP hearts, stopwatch, energy bar, distances, buttons)
  */
 export function updateDOMHUD() {
   if (typeof document === 'undefined') return;
@@ -651,6 +960,23 @@ export function updateDOMHUD() {
   if (heart2) heart2.className = `hp-heart ${hp >= 2 ? 'active' : 'inactive'}`;
   if (heart3) heart3.className = `hp-heart ${hp >= 3 ? 'active' : 'inactive'}`;
 
+  // Shield badge display if present
+  let shieldBadge = document.getElementById('heroShieldBadge');
+  if (!shieldBadge && heart3 && heart3.parentNode) {
+    shieldBadge = document.createElement('span');
+    shieldBadge.id = 'heroShieldBadge';
+    shieldBadge.className = 'shield-badge';
+    heart3.parentNode.appendChild(shieldBadge);
+  }
+  if (shieldBadge) {
+    if (GameState.hero.shield > 0) {
+      shieldBadge.style.display = 'inline-block';
+      shieldBadge.textContent = `SHIELD x${GameState.hero.shield}`;
+    } else {
+      shieldBadge.style.display = 'none';
+    }
+  }
+
   // 2. Stopwatch Timer
   const domTimer = document.getElementById('hudTimer');
   if (domTimer) {
@@ -664,13 +990,21 @@ export function updateDOMHUD() {
   // 3. Round Display & Distance Progress
   const domRound = document.getElementById('hudRound');
   if (domRound) {
-    domRound.textContent = `ROUND ${GameState.currentRound} / 2`;
+    if (GameState.gameMode === 'ENDLESS') {
+      domRound.textContent = `UNLIMITED RUN // BEST: ${Math.floor(GameState.endlessBestDistance)}m`;
+    } else {
+      domRound.textContent = `LEVEL ${GameState.currentLevel} (ROUND ${GameState.currentRound} / 2)`;
+    }
   }
 
   const domDist = document.getElementById('hudDistance');
   if (domDist) {
-    const pct = Math.floor(Math.min(100, (GameState.hero.x / GameState.finishPortal.x) * 100));
-    domDist.textContent = `${pct}% (${Math.floor(GameState.hero.x)} / ${GameState.finishPortal.x}m)`;
+    if (GameState.gameMode === 'ENDLESS') {
+      domDist.textContent = `${Math.floor(GameState.hero.x)}m (Pacing Wall: ${Math.floor(GameState.pacingWall.x)}m)`;
+    } else {
+      const pct = Math.floor(Math.min(100, (GameState.hero.x / GameState.finishPortal.x) * 100));
+      domDist.textContent = `${pct}% (${Math.floor(GameState.hero.x)} / ${GameState.finishPortal.x}m)`;
+    }
   }
 
   // 4. GM Energy Bar & Text

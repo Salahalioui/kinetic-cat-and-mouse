@@ -13,6 +13,7 @@
   --yellow-neon: #f9f871;
   --blue-neon: #05d5fa;
   --gold-neon: #ffd700;
+  --green-neon: #00ff88;
   --text-main: #f0f6fc;
   --text-dim: #8b949e;
   --font-mono: 'Consolas', 'Courier New', 'SF Mono', monospace;
@@ -89,14 +90,14 @@ body::before {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 16px 22px;
+  padding: 12px 18px;
 }
 
 /* Top HUD */
 .hud-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   width: 100%;
 }
 
@@ -106,7 +107,7 @@ body::before {
   gap: 4px;
   background: var(--bg-card);
   backdrop-filter: blur(8px);
-  padding: 8px 14px;
+  padding: 6px 12px;
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   min-width: 170px;
@@ -154,6 +155,18 @@ body::before {
   opacity: 0.35;
 }
 
+.shield-badge {
+  font-size: 9px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  background: rgba(0, 255, 136, 0.2);
+  color: var(--green-neon);
+  border: 1px solid var(--green-neon);
+  box-shadow: 0 0 6px rgba(0, 255, 136, 0.3);
+}
+
 .role-pill {
   font-size: 11px;
   font-weight: bold;
@@ -188,7 +201,7 @@ body::before {
   margin-left: 2px;
 }
 
-/* Center Stopwatch & Round Meta */
+/* Center Stopwatch & Controls Bar */
 .match-center {
   display: flex;
   flex-direction: column;
@@ -196,16 +209,78 @@ body::before {
   gap: 4px;
 }
 
+.mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(8, 11, 20, 0.85);
+  backdrop-filter: blur(6px);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  pointer-events: auto;
+}
+
+.select-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.select-group label {
+  font-size: 9px;
+  font-weight: bold;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+
+.cyber-select {
+  background: #0d1220;
+  color: var(--cyan-neon);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.cyber-select:hover {
+  border-color: var(--cyan-neon);
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+}
+
+.cyber-btn-small {
+  background: rgba(255, 42, 109, 0.2);
+  color: var(--magenta-neon);
+  border: 1px solid var(--magenta-neon);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cyber-btn-small:hover {
+  background: var(--magenta-neon);
+  color: #000;
+  box-shadow: 0 0 10px var(--magenta-glow);
+}
+
 .timer-box {
   background: rgba(0, 0, 0, 0.75);
   border: 1px solid rgba(0, 240, 255, 0.4);
-  padding: 6px 24px;
+  padding: 4px 20px;
   border-radius: 4px;
   box-shadow: 0 0 16px rgba(0, 240, 255, 0.2);
 }
 
 .timer-display {
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 900;
   color: var(--cyan-neon);
   text-shadow: 0 0 12px var(--cyan-glow);
@@ -216,9 +291,9 @@ body::before {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-dim);
-  letter-spacing: 1.5px;
+  letter-spacing: 1.2px;
 }
 
 .meta-separator {
@@ -228,6 +303,39 @@ body::before {
 .dist-display {
   color: var(--yellow-neon);
   font-weight: bold;
+}
+
+/* Turn-Based Launch Button */
+.turn-launch-bar {
+  position: absolute;
+  top: 135px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  pointer-events: auto;
+  z-index: 5;
+}
+
+.launch-hero-btn {
+  background: linear-gradient(135deg, #ffd700, #ffaa00);
+  color: #000;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 8px 24px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 1.5px;
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.4);
+  transition: all 0.15s ease;
+  display: none; /* Shown dynamically in BUILD phase */
+}
+
+.launch-hero-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 24px #ffd700;
 }
 
 /* ==========================================================================
@@ -243,12 +351,12 @@ body::before {
 .control-guide {
   background: var(--bg-card);
   backdrop-filter: blur(8px);
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-dim);
-  line-height: 1.5;
+  line-height: 1.4;
   max-width: 250px;
 }
 
@@ -259,7 +367,7 @@ body::before {
 .guide-title {
   color: #fff;
   font-weight: bold;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -275,7 +383,7 @@ body::before {
   padding: 1px 4px;
   border-radius: 2px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: bold;
 }
 
@@ -284,12 +392,12 @@ body::before {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   pointer-events: auto;
 }
 
 .energy-bar-wrapper {
-  width: 380px;
+  width: 480px;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -297,7 +405,7 @@ body::before {
 
 .energy-track {
   width: 100%;
-  height: 10px;
+  height: 9px;
   background: #140510;
   border: 1px solid var(--magenta-neon);
   border-radius: 2px;
@@ -313,13 +421,13 @@ body::before {
   transition: width 0.08s linear;
 }
 
-/* 4-Button Trap Selector Bar */
+/* 6-Button Trap Selector Bar */
 .trap-selector-bar {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   background: var(--bg-card);
   backdrop-filter: blur(8px);
-  padding: 6px;
+  padding: 5px;
   border-radius: 4px;
   border: 1px solid rgba(255, 42, 109, 0.35);
 }
@@ -328,17 +436,17 @@ body::before {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 8px 12px;
+  gap: 2px;
+  padding: 6px 10px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 3px;
   color: var(--text-main);
   font-family: inherit;
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
   transition: all 0.15s ease;
-  min-width: 82px;
+  min-width: 72px;
 }
 
 .trap-btn:hover:not(.disabled) {
@@ -366,7 +474,7 @@ body::before {
 
 .trap-cost {
   color: var(--magenta-neon);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: bold;
 }
 
@@ -398,7 +506,7 @@ body::before {
   background: var(--bg-card);
   border: 2px solid var(--cyan-neon);
   box-shadow: 0 0 40px var(--cyan-glow), inset 0 0 25px rgba(0, 240, 255, 0.1);
-  padding: 36px 48px;
+  padding: 32px 42px;
   border-radius: 6px;
   text-align: center;
   max-width: 520px;
@@ -413,7 +521,7 @@ body::before {
 }
 
 .modal-title {
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 900;
   color: var(--cyan-neon);
   text-shadow: 0 0 18px var(--cyan-glow);
@@ -422,7 +530,7 @@ body::before {
 }
 
 .modal-subtitle {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-dim);
   margin-bottom: 18px;
   line-height: 1.6;
@@ -434,7 +542,7 @@ body::before {
   border-radius: 4px;
   padding: 12px;
   margin-bottom: 24px;
-  font-size: 13px;
+  font-size: 12px;
   color: #fff;
   line-height: 1.6;
 }
@@ -443,9 +551,9 @@ body::before {
   background: linear-gradient(135deg, var(--cyan-neon), #0077ff);
   color: #000;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
-  padding: 12px 30px;
+  padding: 12px 28px;
   border: none;
   border-radius: 3px;
   cursor: pointer;
