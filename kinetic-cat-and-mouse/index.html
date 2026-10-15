@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kinetic Cat-and-Mouse // Predictive Architect</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2300f0ff'/></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="gameWrapper">
+    <!-- Viewport Canvas (1280x720) -->
+    <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+    <!-- Overlay HUD -->
+    <div id="hudOverlay">
+      <!-- Top HUD: Hero HP, Stopwatch Timer, Round Info, Distance -->
+      <header class="hud-top">
+        <div class="hud-card hero-card">
+          <div class="card-label">HERO INTEGRITY</div>
+          <div id="heroHpContainer" class="hero-hp-container">
+            <span class="hp-heart active" id="hpHeart1"></span>
+            <span class="hp-heart active" id="hpHeart2"></span>
+            <span class="hp-heart active" id="hpHeart3"></span>
+          </div>
+          <div id="heroRoleBadge" class="role-pill hero">P1: HERO</div>
+        </div>
+
+        <div class="match-center">
+          <div class="timer-box">
+            <span id="hudTimer" class="timer-display">00:00.0</span>
+          </div>
+          <div class="match-meta">
+            <span id="hudRound" class="round-display">ROUND 1 / 2</span>
+            <span class="meta-separator">//</span>
+            <span id="hudDistance" class="dist-display">0% (0 / 4650m)</span>
+          </div>
+        </div>
+
+        <div class="hud-card gm-card">
+          <div class="card-label">ARCHITECT ENERGY</div>
+          <div class="energy-numeric">
+            <span id="energyText">100 / 200</span>
+            <small>NRG</small>
+          </div>
+          <div id="gmRoleBadge" class="role-pill gm">P2: GM</div>
+        </div>
+      </header>
+
+      <!-- Bottom HUD: Hero Controls, GM Trap Dock, and Architect Guide -->
+      <footer class="hud-bottom">
+        <!-- Hero Controls Guide -->
+        <div class="control-guide">
+          <div class="guide-title">Hero Controls</div>
+          <div class="guide-row"><span class="key-tag">A</span> <span class="key-tag">D</span> Sprint</div>
+          <div class="guide-row"><span class="key-tag">W</span> / <span class="key-tag">SPACE</span> Jump / Double-Jump</div>
+          <div class="guide-row"><span class="key-tag">SHIFT</span> Dash Burst (GM +15 NRG Tax)</div>
+        </div>
+
+        <!-- Game Master Trap Construction Dock -->
+        <div class="gm-dock">
+          <!-- Energy Progress Bar -->
+          <div class="energy-bar-wrapper">
+            <div class="energy-track">
+              <div id="energyBarFill" class="energy-fill"></div>
+            </div>
+          </div>
+
+          <!-- 4-Button Trap Selector Bar -->
+          <div class="trap-selector-bar">
+            <button id="trapBtn_SPIKE" class="trap-btn active" data-trap="SPIKE" title="Laser Spikes (Cost: 25)">
+              <span class="trap-name">[1] Laser Spikes</span>
+              <span class="trap-cost">25 NRG</span>
+            </button>
+            <button id="trapBtn_ICE" class="trap-btn" data-trap="ICE" title="Cryo Pad (Cost: 20)">
+              <span class="trap-name">[2] Cryo Pad</span>
+              <span class="trap-cost">20 NRG</span>
+            </button>
+            <button id="trapBtn_WIND" class="trap-btn" data-trap="WIND" title="Repulsor Fan (Cost: 40)">
+              <span class="trap-name">[3] Repulsor Fan</span>
+              <span class="trap-cost">40 NRG</span>
+            </button>
+            <button id="trapBtn_PHANTOM" class="trap-btn" data-trap="PHANTOM" title="Hologram Bluff (Cost: 10)">
+              <span class="trap-name">[4] Hologram Bluff</span>
+              <span class="trap-cost">10 NRG</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- GM Controls Guide -->
+        <div class="control-guide gm-guide">
+          <div class="guide-title">Architect Controls</div>
+          <div class="guide-row"><span class="key-tag">L-CLICK</span> Construct Trap (Grid 40px)</div>
+          <div class="guide-row"><span class="key-tag">L-CLICK (WIND)</span> Overclock Fan (20 NRG)</div>
+          <div class="guide-row"><span class="key-tag">R-CLICK</span> Salvage Behind Hero (50% NRG)</div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Action / Round Transition / Match Winner Overlay Modal -->
+    <div id="actionOverlay" class="hidden">
+      <div class="modal-card">
+        <div id="actionHeader" class="modal-header">STOPWATCH ROLE-SWAP</div>
+        <h2 id="actionTitle" class="modal-title">ROUND 1 COMPLETE</h2>
+        <p id="actionSubtitle" class="modal-subtitle">Swap Keyboard &amp; Mouse!</p>
+        <div id="actionStats" class="modal-stats"></div>
+        <button id="actionBtn" class="action-btn">PROCEED TO ROUND 2</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Entry Script -->
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
